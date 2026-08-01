@@ -72,6 +72,8 @@ jobs:
   package:
     if: github.event_name == 'workflow_dispatch'
     needs: test
+    permissions:
+      contents: write
     name: Package ${{ matrix.name }}
     runs-on: ${{ matrix.runner }}
     strategy:
