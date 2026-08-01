@@ -4,25 +4,55 @@
 
 An OnionOS port of Stardew Valley for the Miyoo Mini and Miyoo Mini Plus.
 
-Stardew Valley and its assets are not included. Version `1.6.14.24317` is the
-only version tested for v1.
+Stardew Valley and its assets are not included. Compatibility builds
+`1.6.14.24317` and `1.6.15.24356` are supported.
 
-## Get the game files
+## Setup app
+
+The setup app can sign in to Steam with a Steam Mobile QR code, download the
+supported compatibility build and prepare the OnionOS package. You do not need
+to find or download a depot yourself.
+
+If setup fails, open **Show log** in the app and use **Copy** or **Save** when
+reporting the problem.
+
+Download the setup app for Windows, macOS or Linux from the release page.
+Debian and Ubuntu packages are available as `.deb` files too.
+
+For command-line setup, use the `prepare.sh` script described below.
+
+The app uses Mono 6 and Docker to build the device-specific game files.
+
+## Manual setup
+
+### Download a supported depot
 
 1. Own Stardew Valley on Steam and sign in to the Steam desktop client.
 2. Open `steam://open/console` in a browser.
-3. Run `download_depot 413150 413151 5538941793102260869` in the Steam console.
-4. Steam prints the download location when it finishes. Use the files from
-   that depot folder.
+3. Run the command for either supported version:
 
-## Install
+   `1.6.15.24356`
+
+   ```text
+   download_depot 413150 413151 4848991934266309406
+   ```
+
+   `1.6.14.24317`
+
+   ```text
+   download_depot 413150 413151 5538941793102260869
+   ```
+
+4. Steam prints the download location when it finishes.
+
+### Prepare the port
 
 1. Download the release archive and extract it.
-2. Put the game files in its `gamefiles` folder.
+2. Copy the downloaded depot into the release's `gamefiles` folder.
 3. Install [Mono 6](https://www.mono-project.com/download/stable/) and
-   [Docker](https://docs.docker.com/get-docker/), then run `./prepare.sh` from
-   the extracted folder. On Windows, use WSL.
-4. Copy `OnionOS-package/Roms` to the root of the Miyoo SD card.
+   [Docker](https://docs.docker.com/get-docker/). On Windows, install WSL too.
+4. Run `./prepare.sh` from the extracted folder. On Windows, run it in WSL.
+5. Copy `OnionOS-package/Roms` to the root of the Miyoo SD card.
 
 The copy of `prepare.sh` under [release-tools](release-tools) is here for review.
 Use the one in the release archive; it needs files that are only shipped with
@@ -35,6 +65,6 @@ The port appears in OnionOS as **Stardew Valley for Miyoo Mini**.
 The files written for this project are released under the [MIT License](LICENSE).
 The rest of the port is not public yet.
 
-Modified OpenAL Soft source and its build script are included under
+Modified OpenAL Soft source and its build script are under
 [third_party/openal-soft](third_party/openal-soft). The release archive includes
 the license notices for every bundled runtime component.
