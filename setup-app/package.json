@@ -1,0 +1,31 @@
+{
+  "name": "stardew-miyoo-setup",
+  "private": true,
+  "version": "1.0.1",
+  "packageManager": "pnpm@11.1.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "check": "pnpm build && cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings && cargo test --manifest-path src-tauri/Cargo.toml --all-targets",
+    "preview": "vite preview",
+    "stage:release": "node scripts/stage-release-kit.mjs",
+    "tauri:build": "pnpm stage:release && tauri build --config src-tauri/tauri.release.conf.json",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@fontsource-variable/nunito-sans": "5.3.0",
+    "@fontsource-variable/pixelify-sans": "5.3.0",
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-clipboard-manager": "2.3.2",
+    "@tauri-apps/plugin-dialog": "^2",
+    "@tauri-apps/plugin-opener": "^2",
+    "lucide": "^0.544.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2",
+    "@types/node": "^24",
+    "typescript": "~5.6.2",
+    "vite": "^6.0.3"
+  }
+}

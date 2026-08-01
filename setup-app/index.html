@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#31513a" />
+    <link rel="icon" href="/src/assets/app-icon.svg" />
+    <link rel="stylesheet" href="/src/styles.css" />
+    <title>Stardew Valley for Miyoo Mini</title>
+    <script type="module" src="/src/main.ts" defer></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="scene-header">
+        <div class="scene-art" aria-hidden="true">
+          <img src="/src/assets/stardew-cover.png" alt="" />
+        </div>
+        <div class="app-title">
+          <p>Miyoo Mini</p>
+          <h1>Stardew Valley</h1>
+        </div>
+        <div class="overall-status checking" id="overall-status" role="status">
+          <i data-lucide="loader-circle" aria-hidden="true"></i>
+          <span>Checking this computer</span>
+        </div>
+      </header>
+
+      <div class="menu-shell">
+        <ol class="stage-list" aria-label="Setup steps">
+          <li class="active" data-stage="game" aria-current="step">
+            <span class="stage-marker">1</span>
+            <div><strong>Game</strong><small>Steam files</small></div>
+          </li>
+          <li data-stage="system">
+            <span class="stage-marker">2</span>
+            <div><strong>System</strong><small>Required tools</small></div>
+          </li>
+          <li data-stage="prepare">
+            <span class="stage-marker">3</span>
+            <div><strong>Prepare</strong><small>OnionOS package</small></div>
+          </li>
+        </ol>
+
+        <main class="workspace">
+          <header class="workspace-header">
+            <div>
+              <p class="eyebrow">Setup</p>
+              <h2>Prepare your game</h2>
+              <p class="header-note">
+                Sign in to Steam or choose game files.
+              </p>
+            </div>
+            <span class="app-version" id="app-version"></span>
+          </header>
+
+          <section class="setup-section" aria-labelledby="game-heading">
+            <div class="section-heading">
+              <div>
+                <h3 id="game-heading">Game files</h3>
+                <p id="game-detail">
+                  Looking for the Steam compatibility build...
+                </p>
+              </div>
+              <span class="state-label pending" id="game-state">Checking</span>
+            </div>
+            <div class="path-row game-path-row">
+              <div class="path-value" id="game-path" title="No folder selected">
+                No folder selected
+              </div>
+              <button class="steam-button" id="download-steam" type="button">
+                <i data-lucide="download" aria-hidden="true"></i>
+                Steam
+              </button>
+              <button class="secondary-button" id="choose-game" type="button">
+                <i data-lucide="folder-open" aria-hidden="true"></i>
+                Folder
+              </button>
+              <button class="secondary-button" id="choose-zip" type="button">
+                <i data-lucide="file-archive" aria-hidden="true"></i>
+                ZIP
+              </button>
+            </div>
+          </section>
+
+          <section
+            class="steam-panel"
+            id="steam-panel"
+            aria-live="polite"
+            hidden
+          >
+            <div class="steam-heading">
+              <i data-lucide="qr-code" aria-hidden="true"></i>
+              <div>
+                <strong id="steam-title">Connect to Steam</strong>
+                <p id="steam-message">Starting Steam sign-in...</p>
+              </div>
+              <span id="steam-progress-percent">0%</span>
+            </div>
+            <div class="progress-track">
+              <div id="steam-progress-bar"></div>
+            </div>
+            <pre
+              class="steam-qr"
+              id="steam-qr"
+              aria-label="Steam sign-in QR code"
+              hidden
+            ></pre>
+            <pre class="steam-log" id="steam-output">Starting...</pre>
+          </section>
+
+          <section class="setup-section" aria-labelledby="output-heading">
+            <div class="section-heading">
+              <div>
+                <h3 id="output-heading">Package folder</h3>
+                <p>
+                  The finished <strong>Roms</strong> folder will be created
+                  here.
+                </p>
+              </div>
+            </div>
+            <div class="path-row output-path-row">
+              <div
+                class="path-value"
+                id="output-path"
+                title="Choosing a default folder..."
+              >
+                Choosing a default folder...
+              </div>
+              <button class="secondary-button" id="choose-output" type="button">
+                <i data-lucide="folder-open" aria-hidden="true"></i>
+                Choose
+              </button>
+            </div>
+          </section>
+
+          <section
+            class="requirements-section"
+            aria-labelledby="requirements-heading"
+          >
+            <div class="requirements-title">
+              <h3 id="requirements-heading">Required software</h3>
+              <button
+                class="icon-button"
+                id="refresh"
+                type="button"
+                title="Check again"
+                aria-label="Check requirements again"
+              >
+                <i data-lucide="refresh-cw" aria-hidden="true"></i>
+              </button>
+            </div>
+            <div class="requirements-grid" id="requirements"></div>
+          </section>
+
+          <section
+            class="progress-section"
+            id="progress-section"
+            aria-live="polite"
+            hidden
+          >
+            <div class="progress-copy">
+              <strong id="progress-title">Preparing files</strong>
+              <span id="progress-percent">0%</span>
+            </div>
+            <div class="progress-track"><div id="progress-bar"></div></div>
+            <p id="progress-message">Starting...</p>
+          </section>
+
+          <section class="result-section" id="result-section" hidden>
+            <div>
+              <i data-lucide="package-check" aria-hidden="true"></i>
+              <div>
+                <strong>Package ready</strong>
+                <p>Copy the <b>Roms</b> folder to your SD card.</p>
+              </div>
+            </div>
+            <button class="secondary-button" id="open-output" type="button">
+              <i data-lucide="folder-open" aria-hidden="true"></i>
+              Show folder
+            </button>
+          </section>
+
+          <section
+            class="log-panel"
+            id="log-panel"
+            aria-labelledby="log-heading"
+            hidden
+          >
+            <div class="log-header">
+              <div>
+                <strong id="log-heading">Setup log</strong>
+                <span
+                  id="log-action-status"
+                  role="status"
+                  aria-live="polite"
+                ></span>
+              </div>
+              <div class="log-actions">
+                <button class="log-button" id="copy-log" type="button">
+                  <i data-lucide="copy" aria-hidden="true"></i>
+                  <span>Copy</span>
+                </button>
+                <button class="log-button" id="save-log" type="button">
+                  <i data-lucide="save" aria-hidden="true"></i>
+                  <span>Save</span>
+                </button>
+                <button
+                  class="icon-button"
+                  id="close-log"
+                  type="button"
+                  title="Close log"
+                  aria-label="Close log"
+                >
+                  <i data-lucide="x" aria-hidden="true"></i>
+                </button>
+              </div>
+            </div>
+            <pre id="log-output">Loading setup details...</pre>
+          </section>
+
+          <footer class="action-bar">
+            <button class="text-button" id="toggle-log" type="button">
+              <i data-lucide="square-terminal" aria-hidden="true"></i>
+              <span>Show log</span>
+            </button>
+            <button class="primary-button" id="prepare" type="button" disabled>
+              <i data-lucide="play" aria-hidden="true"></i>
+              Prepare package
+            </button>
+          </footer>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

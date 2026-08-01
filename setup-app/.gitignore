@@ -1,0 +1,8 @@
+node_modules/
+dist/
+output/
+.playwright-cli/
+releases/
+src-tauri/resources/release-kit.tar.gz
+*.local
+.DS_Store

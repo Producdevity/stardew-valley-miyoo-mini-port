@@ -1,0 +1,11 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "resources": {
+      "resources/release-kit.tar.gz": "release-kit.tar.gz"
+    },
+    "macOS": {
+      "signingIdentity": "-"
+    }
+  }
+}
