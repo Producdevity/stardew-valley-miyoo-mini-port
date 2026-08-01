@@ -7,6 +7,7 @@ if [ "$#" -ne 1 ]; then
 fi
 
 ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
+. "$ROOT/scripts/common.sh"
 GAME_DIR=$(CDPATH='' cd -- "$1" && pwd)
 AOT="$ROOT/tools/aot"
 ASSEMBLY="$GAME_DIR/gamedata/Stardew Valley.XmlSerializers.dll"
@@ -14,14 +15,6 @@ SIDECAR="$ASSEMBLY.so"
 MARKER="$GAME_DIR/_svmm-profile-aot.txt"
 DOCKER_IMAGE=${SVMM_DOCKER_IMAGE:-debian:buster}
 DOCKER_PLATFORM=${SVMM_DOCKER_PLATFORM:-}
-
-sha256_file() {
-    if command -v shasum >/dev/null 2>&1; then
-        shasum -a 256 "$1" | awk '{print $1}'
-    else
-        sha256sum "$1" | awk '{print $1}'
-    fi
-}
 
 require_hash() {
     file=$1
@@ -37,8 +30,23 @@ if ! command -v docker >/dev/null 2>&1; then
     exit 1
 fi
 
-require_hash "$ASSEMBLY" \
-    1eb7644d1648368684f7d422ad9922106ac1929f9c953c78115b666bf047fea9
+assembly_hash=$(sha256_file "$ASSEMBLY")
+case "$assembly_hash" in
+    1eb7644d1648368684f7d422ad9922106ac1929f9c953c78115b666bf047fea9)
+        expected_text=77491f6f1ab6c1859b5c47800880a55f34f3890a4da9c71c43435dfede9cfcfd
+        expected_rodata=bfb99a049611924834a18b675df6ebdc6689519586ec4d82c354757e768746d5
+        evidence_id=v1.0.1-user-prepared-1.6.14
+        ;;
+    78f20f307b301f277d0cfd1df778cfbb50bbf7f2de9412e7148fd648d5455cb9)
+        expected_text=cafc8f01fa0c70f21eff33bd015d7f6cf7c061ba9bf24a484917b3b788bf8354
+        expected_rodata=739906d51d718610ac3d0437fd3e31b36d774f34744a09e59614018d46443c4e
+        evidence_id=v1.0.1-user-prepared
+        ;;
+    *)
+        echo "ERROR: serializer does not match a supported game build" >&2
+        exit 1
+        ;;
+esac
 require_hash "$GAME_DIR/mono/lib/mono/4.5/mscorlib.dll" \
     383236a2a58e3b1506338f602b81d2c73ede7470c56a0727371d2b1e8ffdbd15
 require_hash "$AOT/bin/mono-sgen-profilefix" \
@@ -52,12 +60,15 @@ require_hash "$AOT/llvm/bin/llc" \
 require_hash "$AOT/profile/pressure-safe.aotprofile" \
     6ebb3145af2264e1d848110e17b12fe6f745356e97c1ce693c5af518c5837d89
 
-WORK=${TMPDIR:-/tmp}/stardew-miyoo-aot.$$
+WORK=$(make_temp_dir stardew-miyoo-aot)
+CONTAINER=
 cleanup() {
+    if [ -n "$CONTAINER" ]; then
+        docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+    fi
     rm -rf "$WORK"
 }
 trap cleanup EXIT INT TERM
-mkdir -p "$WORK"
 
 echo "Compiling the ARM serializer. This usually takes two to three minutes."
 if [ -n "$DOCKER_PLATFORM" ]; then
@@ -65,10 +76,9 @@ if [ -n "$DOCKER_PLATFORM" ]; then
 else
     set --
 fi
-docker run "$@" --rm --log-driver none \
+CONTAINER=$(docker create "$@" --log-driver none \
     -v "$AOT:/aot:ro" \
     -v "$GAME_DIR:/game:ro" \
-    -v "$WORK:/output" \
     "$DOCKER_IMAGE" sh -c '
 set -eu
 export DEBIAN_FRONTEND=noninteractive
@@ -84,9 +94,15 @@ apt-get install -y --no-install-recommends \
     gcc-arm-linux-gnueabihf \
     libc6-dev-armhf-cross \
     qemu-user-static \
-    time >/dev/null
+    time >/dev/null 2>/tmp/apt-install.err || {
+        cat /tmp/apt-install.err >&2
+        exit 1
+    }
+sed "/^debconf: delaying package configuration, since apt-utils is not installed$/d" \
+    /tmp/apt-install.err >&2
 
 mkdir -p /armhf/packages /output/llvm-wrapper /output/tmp /output/sections
+chown _apt:root /armhf/packages
 cd /armhf/packages
 apt-get download libc6:armhf libgcc1:armhf libstdc++6:armhf zlib1g:armhf \
     >/dev/null
@@ -122,13 +138,19 @@ arm-linux-gnueabihf-objcopy \
 arm-linux-gnueabihf-objcopy \
     --dump-section .rodata=/output/sections/rodata.bin \
     "Stardew Valley.XmlSerializers.dll.so"
-'
+')
+docker start -a "$CONTAINER"
+docker cp "$CONTAINER:/output/." "$WORK"
+docker rm "$CONTAINER" >/dev/null
+CONTAINER=
 
 text_hash=$(sha256_file "$WORK/sections/text.bin")
 rodata_hash=$(sha256_file "$WORK/sections/rodata.bin")
-if [ "$text_hash" != 77491f6f1ab6c1859b5c47800880a55f34f3890a4da9c71c43435dfede9cfcfd ] || \
-   [ "$rodata_hash" != bfb99a049611924834a18b675df6ebdc6689519586ec4d82c354757e768746d5 ]; then
-    echo "ERROR: generated ARM code does not match the tested v1 build" >&2
+if [ "$text_hash" != "$expected_text" ] || \
+   [ "$rodata_hash" != "$expected_rodata" ]; then
+    echo "ERROR: generated ARM code does not match the tested build" >&2
+    echo "text_sha256=$text_hash" >&2
+    echo "rodata_sha256=$rodata_hash" >&2
     exit 1
 fi
 
@@ -139,7 +161,7 @@ cat > "$MARKER.tmp" <<EOF
 format=svmm-profile-aot-package-v1
 mode=game-serializer-only
 assembly=gamedata/Stardew Valley.XmlSerializers.dll
-assembly_sha256=1eb7644d1648368684f7d422ad9922106ac1929f9c953c78115b666bf047fea9
+assembly_sha256=$assembly_hash
 sidecar=gamedata/Stardew Valley.XmlSerializers.dll.so
 sidecar_sha256=$sidecar_hash
 text_sha256=$text_hash
@@ -154,7 +176,7 @@ compiler_sha256=a73c86c3d755e6246badf14f656bb465224825e60d5304952b5740d94adcf954
 loaded_llvm_sha256=bc7a047dc56e2182f1fa1eb9987dcad702cdcd545a9a7b894a18f5dba52ece87
 mono_commit=5266e6a8f107d9b91a6073e4fd1ef4eb1ac7ac6d
 llvm_commit=c97510286a58f9aaa116fcfdb8b693d5f61910d2
-evidence_id=v1-user-prepared
+evidence_id=$evidence_id
 EOF
 mv "$MARKER.tmp" "$MARKER"
 

@@ -9,6 +9,26 @@ need() {
     command -v "$1" >/dev/null 2>&1 || fail "$1 is required"
 }
 
+make_temp_dir() {
+    prefix=$1
+    temp_base=${TMPDIR:-/tmp}
+    case "$temp_base" in
+        /*) ;;
+        *) temp_base=/tmp ;;
+    esac
+    mktemp -d "$temp_base/$prefix.XXXXXX" 2>/dev/null || \
+        mktemp -d "/tmp/$prefix.XXXXXX"
+}
+
+run_in_temp_dir() {
+    temp_dir=$1
+    shift
+    (
+        cd "$temp_dir" || exit 1
+        TMPDIR="$temp_dir" TMP="$temp_dir" TEMP="$temp_dir" "$@"
+    )
+}
+
 sha256_file() {
     if command -v shasum >/dev/null 2>&1; then
         shasum -a 256 "$1" | awk '{print $1}'
@@ -28,7 +48,7 @@ copy_tree() {
 
 hash_tree() {
     source_dir=$1
-    work_dir=$(mktemp -d "${TMPDIR:-/tmp}/stardew-miyoo-hash.XXXXXX")
+    work_dir=$(make_temp_dir stardew-miyoo-hash)
     hashes="$work_dir/files.sha256"
     manifest="$work_dir/manifest.sha256"
 
@@ -44,6 +64,8 @@ hash_tree() {
     (
         cd "$source_dir" || exit 1
         find . -type f \
+            ! -path './.DepotDownloader/*' \
+            ! -path './__MACOSX/*' \
             ! -name '.DS_Store' \
             ! -name '._*' \
             ! -name 'Thumbs.db' \

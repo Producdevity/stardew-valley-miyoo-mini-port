@@ -63,8 +63,12 @@ reject_overlap "$TEMPLATE" "$OUT" 'runtime template and output directories'
 STAGING="$OUT.tmp.$$"
 BACKUP="$OUT.previous.$$"
 BAKED="$OUT.baked.$$"
+SERIALIZER_TMP=
 
 cleanup() {
+    if [ -n "$SERIALIZER_TMP" ]; then
+        rm -rf "$SERIALIZER_TMP"
+    fi
     rm -rf "$STAGING" "$BAKED"
     if [ ! -e "$OUT" ] && [ -e "$BACKUP" ]; then
         mv "$BACKUP" "$OUT"
@@ -99,12 +103,10 @@ build_serializers() {
     game_exe=$1
     game_dir=$(CDPATH='' cd -- "$(dirname -- "$game_exe")" && pwd)
     dll_dir=$(CDPATH='' cd -- "$game_dir/../dlls" && pwd)
-    serializer_tmp="$STAGING/.serializer-tmp"
-    mkdir -p "$serializer_tmp"
+    SERIALIZER_TMP=$(make_temp_dir stardew-miyoo-serializer)
 
-    TMPDIR="$serializer_tmp" \
     MONO_PATH="$dll_dir:$game_dir${MONO_PATH:+:$MONO_PATH}" \
-    sgen --force --silent --assembly:"$game_exe" \
+    run_in_temp_dir "$SERIALIZER_TMP" sgen --force --silent --assembly:"$game_exe" \
         --type:StardewValley.SaveGame \
         --type:StardewValley.Farmer \
         --type:StardewValley.GameLocation \
@@ -121,24 +123,26 @@ build_serializers() {
         --type:StardewValley.Object \
         --type:StardewValley.Friendship \
         --type:'StardewValley.SerializableDictionary`2[[System.String, mscorlib],[System.Int32, mscorlib]]' \
-        --out:"$game_dir"
+        --out:"$SERIALIZER_TMP"
+    mv "$SERIALIZER_TMP/Stardew Valley.XmlSerializers.dll" "$game_dir/"
 
-    TMPDIR="$serializer_tmp" \
     MONO_PATH="$dll_dir:$game_dir${MONO_PATH:+:$MONO_PATH}" \
-    sgen --force --silent \
+    run_in_temp_dir "$SERIALIZER_TMP" sgen --force --silent \
         --assembly:"$dll_dir/MonoGame.Framework.dll" \
         --type:Microsoft.Xna.Framework.Vector2 \
-        --out:"$game_dir"
+        --out:"$SERIALIZER_TMP"
+    mv "$SERIALIZER_TMP/MonoGame.Framework.XmlSerializers.dll" "$game_dir/"
 
     mono_bin=$(command -v mono)
     mono_prefix=$(CDPATH='' cd -- "$(dirname -- "$mono_bin")/.." && pwd)
     mscorlib="$mono_prefix/lib/mono/4.5/mscorlib.dll"
     [ -f "$mscorlib" ] || fail "Mono mscorlib.dll is missing: $mscorlib"
-    TMPDIR="$serializer_tmp" sgen --force --silent \
+    run_in_temp_dir "$SERIALIZER_TMP" sgen --force --silent \
         --assembly:"$mscorlib" \
         --type:'System.Boolean[]' \
         --type:'System.Int32[]' \
-        --out:"$game_dir"
+        --out:"$SERIALIZER_TMP"
+    mv "$SERIALIZER_TMP/mscorlib.XmlSerializers.dll" "$game_dir/"
 
     for companion in \
         "$game_dir/Stardew Valley.XmlSerializers.dll" \
@@ -147,7 +151,8 @@ build_serializers() {
     do
         [ -s "$companion" ] || fail "serializer was not generated: $companion"
     done
-    rm -rf "$serializer_tmp"
+    rm -rf "$SERIALIZER_TMP"
+    SERIALIZER_TMP=
 }
 
 run_serializer_checks() {
@@ -168,6 +173,14 @@ run_serializer_checks() {
 
 "$ROOT/scripts/check-gamefiles.sh" "$SOURCE"
 source_tree_before=$(hash_tree "$SOURCE")
+source_game_hash=$(sha256_file "$SOURCE/Stardew Valley.exe")
+case "$source_game_hash" in
+    505d343f04420186ba2b611bcc5d256eff554451f55a6b37f3454362d5e03656)
+        game_version=1.6.14.24317 ;;
+    0cb091faf1c3ade402340641fc47bcf9a8f6e591a645f27a4c0db2fcdc966086)
+        game_version=1.6.15.24356 ;;
+    *) fail 'unsupported Stardew Valley compatibility build' ;;
+esac
 
 rm -rf "$STAGING" "$BACKUP" "$BAKED"
 copy_tree "$TEMPLATE" "$STAGING"
@@ -175,6 +188,10 @@ GAME_DIR="$STAGING/Roms/PORTS/Games/Stardew Valley for Miyoo Mini"
 rm -rf "$GAME_DIR/gamedata" "$GAME_DIR/savedata"
 mkdir -p "$GAME_DIR/gamedata" "$GAME_DIR/savedata"
 copy_tree "$SOURCE" "$GAME_DIR/gamedata"
+rm -rf \
+    "$GAME_DIR/gamedata/.DepotDownloader" \
+    "$GAME_DIR/gamedata/__MACOSX" \
+    "$GAME_DIR/gamedata/_CommonRedist"
 find "$GAME_DIR/gamedata" -type f \( \
     -name '.DS_Store' -o -name '._*' -o -name 'Thumbs.db' -o -name '.gitkeep' \
     \) -delete
@@ -208,7 +225,7 @@ copy_tree "$BAKED" "$GAME_DIR/gamedata/Content"
 
 cat > "$GAME_DIR/_svmm-preparation-receipt.txt" <<EOF
 version=1
-game_version=1.6.14.24317
+game_version=$game_version
 source_tree_sha256=$source_tree_before
 EOF
 
