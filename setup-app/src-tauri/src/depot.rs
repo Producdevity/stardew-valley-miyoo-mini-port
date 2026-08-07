@@ -423,13 +423,46 @@ enum ProcessOutput {
 }
 
 fn read_lines(reader: impl Read, is_error: bool, sender: mpsc::Sender<ProcessOutput>) {
-    for line in BufReader::new(reader).lines().map_while(Result::ok) {
+    let mut reader = BufReader::new(reader);
+    let mut bytes = Vec::new();
+    loop {
+        bytes.clear();
+        let read = match reader.read_until(b'\n', &mut bytes) {
+            Ok(read) => read,
+            Err(_) => break,
+        };
+        if read == 0 {
+            break;
+        }
+        let line = decode_output_line(&bytes);
         let _ = sender.send(ProcessOutput::Line {
             is_error,
             line: strip_ansi(&line),
         });
     }
     let _ = sender.send(ProcessOutput::Closed);
+}
+
+fn decode_output_line(bytes: &[u8]) -> String {
+    let mut bytes = bytes;
+    if let Some(line) = bytes.strip_suffix(b"\n") {
+        bytes = line;
+    }
+    if let Some(line) = bytes.strip_suffix(b"\r") {
+        bytes = line;
+    }
+    if let Ok(line) = std::str::from_utf8(bytes) {
+        return line.to_owned();
+    }
+
+    bytes
+        .iter()
+        .map(|byte| match byte {
+            0xdb => '█',
+            0x20..=0x7e => char::from(*byte),
+            _ => '�',
+        })
+        .collect()
 }
 
 fn strip_ansi(line: &str) -> String {
@@ -501,13 +534,20 @@ fn progress_for_line(line: &str) -> u8 {
 fn output_kind(line: &str, is_error: bool) -> &'static str {
     if line.contains("Steam Mobile App") {
         "qr-start"
-    } else if line.contains('█') {
+    } else if is_qr_row(line) {
         "qr"
     } else if is_error {
         "warning"
     } else {
         "log"
     }
+}
+
+fn is_qr_row(line: &str) -> bool {
+    line.chars().count() >= 16
+        && line
+            .chars()
+            .all(|character| character == ' ' || character == '█')
 }
 
 fn percent_in_line(line: &str) -> Option<u32> {
@@ -567,7 +607,8 @@ fn io_error(context: &'static str) -> impl FnOnce(std::io::Error) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        output_kind, percent_in_line, progress_for_line, replace_directory, strip_ansi, tool_spec,
+        decode_output_line, output_kind, percent_in_line, progress_for_line, replace_directory,
+        strip_ansi, tool_spec,
     };
     use std::fs;
     use tempfile::tempdir;
@@ -607,8 +648,16 @@ mod tests {
     fn separates_qr_rows_from_download_logs() {
         assert_eq!(output_kind("Use the Steam Mobile App", false), "qr-start");
         assert_eq!(output_kind("    ██████    ██", false), "qr");
+        assert_eq!(output_kind("                    ", false), "qr");
         assert_eq!(output_kind("Downloading depot 413151", false), "log");
         assert_eq!(output_kind("Connection failed", true), "warning");
+    }
+
+    #[test]
+    fn reads_windows_console_qr_rows_without_dropping_them() {
+        let line = decode_output_line(b"    \xdb\xdb  \xdb\xdb  \xdb\xdb  \xdb\xdb\r\n");
+        assert_eq!(line, "    ██  ██  ██  ██");
+        assert_eq!(output_kind(&line, false), "qr");
     }
 
     #[test]

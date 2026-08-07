@@ -25,6 +25,7 @@ import {
   createIcons,
 } from "lucide";
 import { previewEnvironment, previewPreparation } from "./preview";
+import { steamQrMatrix } from "./steam-qr";
 import { buildSupportLog } from "./support-log";
 import type {
   EnvironmentInfo,
@@ -166,6 +167,7 @@ function renderRequirements() {
       name: "Release files",
       ready: environment.releaseKit.ready,
       detail: environment.releaseKit.detail,
+      helpUrl: undefined,
     },
   ];
   element("requirements").replaceChildren(
@@ -189,32 +191,23 @@ function renderRequirement(item: Requirement): HTMLElement {
   copy.append(name, detail);
   row.append(icon, copy);
 
-  if (!item.ready && requirementUrl(item.name)) {
+  const helpUrl = item.helpUrl;
+  if (!item.ready && helpUrl) {
     const guide = document.createElement("button");
     guide.className = "requirement-action";
     guide.type = "button";
     guide.textContent = "Open guide";
     guide.addEventListener("click", () =>
-      runAction(() => openRequirementSetup(item.name)),
+      runAction(() => openRequirementSetup(helpUrl)),
     );
     row.append(guide);
   }
   return row;
 }
 
-function requirementUrl(name: string): string | undefined {
-  if (name === "WSL") return "https://learn.microsoft.com/windows/wsl/install";
-  if (name === "Docker") return "https://docs.docker.com/get-docker/";
-  if (name === "Mono 6" || name === "Mono serializer") {
-    return "https://www.mono-project.com/download/stable/";
-  }
-  return undefined;
-}
-
-async function openRequirementSetup(name: string) {
-  const url = requirementUrl(name);
-  if (isTauri && url) await openUrl(url);
-  else if (url) window.open(url, "_blank", "noopener,noreferrer");
+async function openRequirementSetup(url: string) {
+  if (isTauri) await openUrl(url);
+  else window.open(url, "_blank", "noopener,noreferrer");
 }
 
 function setOverall(kind: "checking" | "ready" | "error", text: string) {
@@ -401,21 +394,40 @@ function appendSteamLog(line: string) {
 
 function showSteamQr() {
   steamQrLines = [];
-  element("steam-qr").textContent = "";
-  element("steam-qr").hidden = false;
+  const qr = element("steam-qr");
+  qr.replaceChildren();
+  qr.hidden = false;
   element("steam-output").hidden = true;
 }
 
 function appendSteamQrLine(line: string) {
-  const row = line.trimEnd();
-  if (!row.includes("█")) return;
-  steamQrLines.push(row);
-  const indent = Math.min(
-    ...steamQrLines.map((value) => value.length - value.trimStart().length),
-  );
-  element("steam-qr").textContent = steamQrLines
-    .map((value) => value.slice(indent))
-    .join("\n");
+  steamQrLines.push(line);
+  renderSteamQr();
+}
+
+function renderSteamQr() {
+  const rows = steamQrMatrix(steamQrLines);
+  const columns = Math.max(0, ...rows.map((row) => row.length));
+  if (!rows.length || !columns) return;
+
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", `0 0 ${columns} ${rows.length}`);
+  svg.setAttribute("aria-hidden", "true");
+  for (const [y, row] of rows.entries()) {
+    for (const [x, dark] of row.entries()) {
+      if (!dark) continue;
+      const module = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "rect",
+      );
+      module.setAttribute("x", String(x));
+      module.setAttribute("y", String(y));
+      module.setAttribute("width", "1");
+      module.setAttribute("height", "1");
+      svg.append(module);
+    }
+  }
+  element("steam-qr").replaceChildren(svg);
 }
 
 function hideSteamQr() {

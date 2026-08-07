@@ -23,6 +23,30 @@ pub fn wsl_ready() -> bool {
     }
 }
 
+pub fn windows_docker_running() -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        let mut candidates = vec![std::path::PathBuf::from("docker.exe")];
+        if let Some(program_files) = std::env::var_os("PROGRAMFILES") {
+            candidates.push(
+                std::path::PathBuf::from(program_files)
+                    .join("Docker/Docker/resources/bin/docker.exe"),
+            );
+        }
+        candidates.into_iter().any(|program| {
+            Command::new(program)
+                .args(["version", "--format", "{{.Server.Version}}"])
+                .output()
+                .map(|output| output.status.success() && !output.stdout.is_empty())
+                .unwrap_or(false)
+        })
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        false
+    }
+}
+
 pub fn script_command(script: &Path, paths: &[&Path]) -> Result<Command, String> {
     #[cfg(target_os = "windows")]
     {

@@ -2,6 +2,7 @@ export type Requirement = {
   name: string;
   ready: boolean;
   detail: string;
+  helpUrl?: string;
 };
 
 export type GameCandidate = {

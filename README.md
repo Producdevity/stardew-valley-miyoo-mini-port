@@ -21,7 +21,8 @@ Debian and Ubuntu packages are available as `.deb` files too.
 
 For command-line setup, use the `prepare.sh` script described below.
 
-The app uses Mono 6 and Docker to build the device-specific game files.
+The app uses Mono 6 and Docker to build the device-specific game files. On
+Windows, both tools must be available inside WSL.
 
 ## Manual setup
 
@@ -29,30 +30,34 @@ The app uses Mono 6 and Docker to build the device-specific game files.
 
 1. Own Stardew Valley on Steam and sign in to the Steam desktop client.
 2. Open `steam://open/console` in a browser.
-3. Run the command for either supported version:
-
-   `1.6.15.24356`
+3. For `1.6.15.24356`, run:
 
    ```text
    download_depot 413150 413151 4848991934266309406
    ```
 
-   `1.6.14.24317`
-
-   ```text
-   download_depot 413150 413151 5538941793102260869
-   ```
-
 4. Steam prints the download location when it finishes.
+
+Steam's console may refuse the older `1.6.14.24317` manifest. It remains
+available through [DepotDownloader](https://github.com/SteamRE/DepotDownloader):
+
+```sh
+DepotDownloader -app 413150 -depot 413151 -manifest 5538941793102260869 -beta compatibility -qr
+```
 
 ### Prepare the port
 
 1. Download the release archive and extract it.
 2. Copy the downloaded depot into the release's `gamefiles` folder.
 3. Install [Mono 6](https://www.mono-project.com/download/stable/) and
-   [Docker](https://docs.docker.com/get-docker/). On Windows, install WSL too.
+   [Docker](https://docs.docker.com/get-docker/).
 4. Run `./prepare.sh` from the extracted folder. On Windows, run it in WSL.
 5. Copy `OnionOS-package/Roms` to the root of the Miyoo SD card.
+
+On Windows, first [install WSL](https://learn.microsoft.com/windows/wsl/install).
+Open WSL and run `sudo apt update && sudo apt install mono-devel`, then enable
+that distribution under Docker Desktop's
+[WSL integration settings](https://docs.docker.com/desktop/features/wsl/).
 
 The copy of `prepare.sh` under [release-tools](release-tools) is here for review.
 Use the one in the release archive; it needs files that are only shipped with

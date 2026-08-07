@@ -16,6 +16,10 @@ on:
 permissions:
   contents: read
 
+env:
+  RELEASE_TAG: v1.0.2
+  RELEASE_ARCHIVE: stardew-valley-miyoo-mini-v1.0.2.tar.gz
+
 jobs:
   test:
     name: ${{ matrix.name }}
@@ -59,14 +63,16 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf xdg-utils
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+      - run: pnpm test
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
       - run: cargo test --manifest-path src-tauri/Cargo.toml --all-targets
       - name: Check release scripts
         if: runner.os == 'Linux'
         run: |
-          shellcheck -e SC1091 ../release-tools/prepare.sh ../release-tools/scripts/*.sh ../release-tools/tests/*.sh
+          shellcheck -e SC1091 scripts/*.sh ../release-tools/prepare.sh ../release-tools/scripts/*.sh ../release-tools/tests/*.sh
           sh ../release-tools/tests/serializer-temp-dir.sh
+          sh ../release-tools/tests/gamefile-validation.sh
       - run: pnpm tauri build --no-bundle
 
   package:
@@ -127,15 +133,45 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf xdg-utils
       - run: pnpm install --frozen-lockfile
       - name: Download port archive
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          node -e "require('fs').mkdirSync('../releases/v1.0.1', { recursive: true })"
-          gh release download v1.0.1 --clobber --pattern stardew-valley-miyoo-mini-v1.0.1.tar.gz --dir ../releases/v1.0.1
+          mkdir -p "../releases/$RELEASE_TAG"
+          gh release download "$RELEASE_TAG" --clobber --pattern "$RELEASE_ARCHIVE" --dir "../releases/$RELEASE_TAG"
       - run: pnpm stage:release
+      - name: Prepare AppImage tools
+        if: runner.os == 'Linux'
+        run: sh scripts/prepare-appimage-tools.sh
       - run: pnpm tauri build --config src-tauri/tauri.release.conf.json --bundles ${{ matrix.bundles }}
+      - name: Check AppImage libraries
+        if: runner.os == 'Linux'
+        run: |
+          for appimage in src-tauri/target/release/bundle/appimage/*.AppImage; do
+            sh scripts/check-appimage.sh "$appimage"
+          done
       - uses: actions/upload-artifact@v4
         with:
           name: setup-${{ runner.os }}-${{ runner.arch }}
           path: ${{ matrix.artifacts }}
           if-no-files-found: error
+
+  publish:
+    if: github.event_name == 'workflow_dispatch'
+    needs: package
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: setup-*
+          path: dist
+          merge-multiple: true
+      - name: Add setup apps to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --clobber --pattern "$RELEASE_ARCHIVE" --dir dist
+          (cd dist && sha256sum *.AppImage *.deb *.dmg *.exe *.tar.gz > SHA256SUMS)
+          gh release upload "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --clobber dist/*

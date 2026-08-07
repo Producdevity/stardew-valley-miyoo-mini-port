@@ -1,13 +1,14 @@
 {
   "name": "stardew-miyoo-setup",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.0.2",
   "packageManager": "pnpm@11.1.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "check": "pnpm build && cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings && cargo test --manifest-path src-tauri/Cargo.toml --all-targets",
+    "test": "node --test --experimental-strip-types src/*.test.ts",
+    "check": "pnpm build && pnpm test && cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings && cargo test --manifest-path src-tauri/Cargo.toml --all-targets",
     "preview": "vite preview",
     "stage:release": "node scripts/stage-release-kit.mjs",
     "tauri:build": "pnpm stage:release && tauri build --config src-tauri/tauri.release.conf.json",

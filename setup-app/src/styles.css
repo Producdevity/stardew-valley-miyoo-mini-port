@@ -603,15 +603,19 @@ button:focus-visible {
   white-space: pre;
 }
 .steam-qr {
-  width: max-content;
-  max-width: 100%;
+  width: min(220px, 100%);
+  aspect-ratio: 1;
   margin: 11px auto 0;
   padding: 9px;
-  overflow: hidden;
   color: var(--night);
   background: #fff0bd;
-  font-size: 7px;
-  line-height: 1;
+}
+.steam-qr svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
+  shape-rendering: crispEdges;
 }
 .steam-log {
   max-height: 120px;
