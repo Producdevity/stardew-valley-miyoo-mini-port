@@ -19,6 +19,9 @@ permissions:
 env:
   RELEASE_TAG: v1.0.2
   RELEASE_ARCHIVE: stardew-valley-miyoo-mini-v1.0.2.tar.gz
+  GIT_CONFIG_COUNT: "1"
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: master
 
 jobs:
   test:
@@ -44,11 +47,11 @@ jobs:
         working-directory: setup-app
 
     steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
         with:
           version: 11.1.1
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: pnpm
@@ -116,11 +119,11 @@ jobs:
         working-directory: setup-app
 
     steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
         with:
           version: 11.1.1
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: pnpm
@@ -150,7 +153,7 @@ jobs:
           for appimage in src-tauri/target/release/bundle/appimage/*.AppImage; do
             sh scripts/check-appimage.sh "$appimage"
           done
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: setup-${{ runner.os }}-${{ runner.arch }}
           path: ${{ matrix.artifacts }}
@@ -163,7 +166,8 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           pattern: setup-*
           path: dist
@@ -172,6 +176,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --clobber --pattern "$RELEASE_ARCHIVE" --dir dist
-          (cd dist && sha256sum *.AppImage *.deb *.dmg *.exe *.tar.gz > SHA256SUMS)
-          gh release upload "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --clobber dist/*
+          setup-app/scripts/collect-installers.sh dist release-assets "$RELEASE_TAG"
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --clobber --pattern "$RELEASE_ARCHIVE" --dir release-assets
+          (cd release-assets && sha256sum *.AppImage *.deb *.dmg *.exe "$RELEASE_ARCHIVE" > SHA256SUMS)
+          gh release upload "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --clobber \
+            release-assets/*.AppImage release-assets/*.deb release-assets/*.dmg \
+            release-assets/*.exe release-assets/SHA256SUMS
