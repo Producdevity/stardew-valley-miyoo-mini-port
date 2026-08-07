@@ -5,6 +5,7 @@ use std::fs;
 use std::path::PathBuf;
 
 const GAME_EXE: &str = "Stardew Valley.exe";
+const EXPECTED_XNB_COUNT: usize = 3550;
 const VERSION_1614: &str = "505d343f04420186ba2b611bcc5d256eff554451f55a6b37f3454362d5e03656";
 const VERSION_1615: &str = "0cb091faf1c3ade402340641fc47bcf9a8f6e591a645f27a4c0db2fcdc966086";
 const XTILE_1614: &str = "a05a1123aa3abb8c68ec2589649dfac724dd3cc52a2e0d812f04ffab794a7be5";
@@ -39,17 +40,39 @@ pub fn inspect_game(path: PathBuf, source: &str) -> GameCandidate {
     let canonical = path.canonicalize().unwrap_or(path);
     let executable = canonical.join(GAME_EXE);
     let xtile = canonical.join("xTile.dll");
-    let version = hash::sha256_file(&executable).ok().and_then(|game_hash| {
-        hash::sha256_file(&xtile)
-            .ok()
-            .and_then(|xtile_hash| version_for_hashes(&game_hash, &xtile_hash))
-    });
+    let content = canonical.join("Content");
+    let game_hash = hash::sha256_file(&executable).ok();
+    let xtile_hash = hash::sha256_file(&xtile).ok();
+    let game = game_hash.as_deref().and_then(game_for_hash);
+    let version = game.map(|(version, _)| version);
+    let xtile_matches = game
+        .zip(xtile_hash.as_deref())
+        .map(|((_, expected), actual)| actual == expected)
+        .unwrap_or(false);
+    let xnb_count = content.is_dir().then(|| count_xnb_files(&content));
     let detail = if !executable.is_file() {
         "Stardew Valley.exe is missing".into()
     } else if !xtile.is_file() {
         "xTile.dll is missing".into()
-    } else if !canonical.join("Content").is_dir() {
+    } else if game.is_none() {
+        format!(
+            "Unsupported Stardew Valley.exe ({})",
+            short_hash(game_hash.as_deref())
+        )
+    } else if !xtile_matches {
+        format!(
+            "xTile.dll does not match compatibility build {} ({})",
+            version.expect("known game hash has a version"),
+            short_hash(xtile_hash.as_deref())
+        )
+    } else if !content.is_dir() {
         "Content directory is missing".into()
+    } else if xnb_count != Some(EXPECTED_XNB_COUNT) {
+        format!(
+            "Incomplete Content directory: found {} of {} XNB files",
+            xnb_count.unwrap_or(0),
+            EXPECTED_XNB_COUNT
+        )
     } else if let Some(version) = version {
         format!("Compatibility build {version}")
     } else {
@@ -59,18 +82,51 @@ pub fn inspect_game(path: PathBuf, source: &str) -> GameCandidate {
     GameCandidate {
         path: canonical.to_string_lossy().into_owned(),
         source: source.into(),
-        supported: version.is_some() && canonical.join("Content").is_dir(),
+        supported: version.is_some() && xtile_matches && xnb_count == Some(EXPECTED_XNB_COUNT),
         version,
         detail,
     }
 }
 
-pub fn version_for_hashes(game_hash: &str, xtile_hash: &str) -> Option<&'static str> {
-    match (game_hash, xtile_hash) {
-        (VERSION_1614, XTILE_1614) => Some("1.6.14.24317"),
-        (VERSION_1615, XTILE_1615) => Some("1.6.15.24356"),
+pub(crate) fn game_for_hash(game_hash: &str) -> Option<(&'static str, &'static str)> {
+    match game_hash {
+        VERSION_1614 => Some(("1.6.14.24317", XTILE_1614)),
+        VERSION_1615 => Some(("1.6.15.24356", XTILE_1615)),
         _ => None,
     }
+}
+
+fn count_xnb_files(root: &std::path::Path) -> usize {
+    let Ok(entries) = fs::read_dir(root) else {
+        return 0;
+    };
+    entries
+        .filter_map(Result::ok)
+        .map(|entry| {
+            let Ok(file_type) = entry.file_type() else {
+                return 0;
+            };
+            if file_type.is_dir() {
+                count_xnb_files(&entry.path())
+            } else if file_type.is_file()
+                && entry
+                    .path()
+                    .extension()
+                    .and_then(|extension| extension.to_str())
+                    .map(|extension| extension.eq_ignore_ascii_case("xnb"))
+                    .unwrap_or(false)
+            {
+                1
+            } else {
+                0
+            }
+        })
+        .sum()
+}
+
+fn short_hash(hash: Option<&str>) -> &str {
+    hash.and_then(|value| value.get(..12))
+        .unwrap_or("unreadable")
 }
 
 pub fn unsupported(path: PathBuf, source: &str, detail: String) -> GameCandidate {
@@ -179,7 +235,7 @@ fn quoted_tokens(text: &str) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{quoted_tokens, vdf_library_paths, vdf_value};
+    use super::{game_for_hash, quoted_tokens, vdf_library_paths, vdf_value, VERSION_1615};
 
     #[test]
     fn reads_manifest_values() {
@@ -202,5 +258,12 @@ mod tests {
             quoted_tokens(r#""a" "some \"quoted\" value""#)[1],
             "some \"quoted\" value"
         );
+    }
+
+    #[test]
+    fn identifies_the_game_before_checking_companion_files() {
+        let (version, xtile) = game_for_hash(VERSION_1615).unwrap();
+        assert_eq!(version, "1.6.15.24356");
+        assert_eq!(xtile.len(), 64);
     }
 }

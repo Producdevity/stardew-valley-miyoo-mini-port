@@ -68,19 +68,32 @@ fn inspect_zip(path: &Path) -> Result<GameCandidate, String> {
         hash::sha256_reader(xtile)
             .map_err(|error| format!("Could not verify xTile.dll: {error}"))?
     };
-    let version = steam::version_for_hashes(&game_hash, &xtile_hash);
-    let supported = version.is_some() && layout.xnb_count == EXPECTED_XNB_COUNT;
-    let detail = if let Some(version) = version {
-        if layout.xnb_count == EXPECTED_XNB_COUNT {
-            format!("Compatibility build {version} ZIP")
-        } else {
-            format!(
-                "Incomplete Content directory: found {} of {} files",
-                layout.xnb_count, EXPECTED_XNB_COUNT
-            )
-        }
+    let game = steam::game_for_hash(&game_hash);
+    let version = game.map(|(version, _)| version);
+    let xtile_matches = game
+        .map(|(_, expected)| expected == xtile_hash)
+        .unwrap_or(false);
+    let supported = version.is_some() && xtile_matches && layout.xnb_count == EXPECTED_XNB_COUNT;
+    let detail = if game.is_none() {
+        format!(
+            "Unsupported Stardew Valley.exe ({})",
+            short_hash(&game_hash)
+        )
+    } else if !xtile_matches {
+        format!(
+            "xTile.dll does not match compatibility build {} ({})",
+            version.expect("known game hash has a version"),
+            short_hash(&xtile_hash)
+        )
+    } else if layout.xnb_count != EXPECTED_XNB_COUNT {
+        format!(
+            "Incomplete Content directory: found {} of {} XNB files",
+            layout.xnb_count, EXPECTED_XNB_COUNT
+        )
+    } else if let Some(version) = version {
+        format!("Compatibility build {version} ZIP")
     } else {
-        "This Stardew build is not supported".into()
+        unreachable!("supported game hash has no version")
     };
     Ok(GameCandidate {
         path: path.to_string_lossy().into_owned(),
@@ -239,6 +252,10 @@ fn validate_archive_limits(entries: usize, uncompressed_size: u64) -> Result<(),
         return Err("ZIP archive is too large".into());
     }
     Ok(())
+}
+
+fn short_hash(hash: &str) -> &str {
+    hash.get(..12).unwrap_or("unreadable")
 }
 
 fn ignored(path: &Path) -> bool {
