@@ -17,8 +17,8 @@ permissions:
   contents: read
 
 env:
-  RELEASE_TAG: v1.0.2
-  RELEASE_ARCHIVE: stardew-valley-miyoo-mini-v1.0.2.tar.gz
+  RELEASE_TAG: v1.0.3
+  RELEASE_ARCHIVE: stardew-valley-miyoo-mini-v1.0.3.tar.gz
   GIT_CONFIG_COUNT: "1"
   GIT_CONFIG_KEY_0: init.defaultBranch
   GIT_CONFIG_VALUE_0: master
