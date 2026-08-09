@@ -31,19 +31,65 @@ if ! command -v docker >/dev/null 2>&1; then
 fi
 
 assembly_hash=$(sha256_file "$ASSEMBLY")
-case "$assembly_hash" in
-    1eb7644d1648368684f7d422ad9922106ac1929f9c953c78115b666bf047fea9)
+framework_hash=$(sha256_file "$GAME_DIR/dlls/MonoGame.Framework.dll")
+game_hash=$(sha256_file "$GAME_DIR/gamedata/Stardew Valley.exe")
+case "$assembly_hash:$framework_hash" in
+    1eb7644d1648368684f7d422ad9922106ac1929f9c953c78115b666bf047fea9:9080ef28b7dd11faeae283794a5a29066dacbccd8799d0e36577a8ca59078eaf)
         expected_text=77491f6f1ab6c1859b5c47800880a55f34f3890a4da9c71c43435dfede9cfcfd
         expected_rodata=bfb99a049611924834a18b675df6ebdc6689519586ec4d82c354757e768746d5
         evidence_id=v1.0.1-user-prepared-1.6.14
         ;;
-    78f20f307b301f277d0cfd1df778cfbb50bbf7f2de9412e7148fd648d5455cb9)
+    78f20f307b301f277d0cfd1df778cfbb50bbf7f2de9412e7148fd648d5455cb9:9080ef28b7dd11faeae283794a5a29066dacbccd8799d0e36577a8ca59078eaf)
         expected_text=cafc8f01fa0c70f21eff33bd015d7f6cf7c061ba9bf24a484917b3b788bf8354
         expected_rodata=739906d51d718610ac3d0437fd3e31b36d774f34744a09e59614018d46443c4e
         evidence_id=v1.0.1-user-prepared
         ;;
+    1eb7644d1648368684f7d422ad9922106ac1929f9c953c78115b666bf047fea9:01b62eb6e0720eda3b61765188d97ac5df0545ce0745650609218a9189a13632)
+        expected_text=77491f6f1ab6c1859b5c47800880a55f34f3890a4da9c71c43435dfede9cfcfd
+        expected_rodata=bd609edb63b5a439001ca83dd6f1cc1cfb462dc6c150ce34eb8eb9c75efe2d77
+        evidence_id=native-env-cache-user-prepared-1.6.14
+        ;;
+    78f20f307b301f277d0cfd1df778cfbb50bbf7f2de9412e7148fd648d5455cb9:01b62eb6e0720eda3b61765188d97ac5df0545ce0745650609218a9189a13632)
+        expected_text=cafc8f01fa0c70f21eff33bd015d7f6cf7c061ba9bf24a484917b3b788bf8354
+        expected_rodata=cd00f35baac046ef2f36b64c2981bc74afeda64091f3a5c90ae84eafb9fb12ae
+        evidence_id=native-env-cache-user-prepared-1.6.15
+        ;;
+    1eb7644d1648368684f7d422ad9922106ac1929f9c953c78115b666bf047fea9:467e73ba9d54d49d2d3eaf61abbfc10eaa3937e35308c685ae9bdf64950b9fb1)
+        expected_text=77491f6f1ab6c1859b5c47800880a55f34f3890a4da9c71c43435dfede9cfcfd
+        expected_rodata=7b99eed2e7092af5b257cdc65f12b575392ae543ee2c3aac4c4cd675a92768f3
+        evidence_id=backbuffer-alias-user-prepared-1.6.14
+        ;;
+    78f20f307b301f277d0cfd1df778cfbb50bbf7f2de9412e7148fd648d5455cb9:467e73ba9d54d49d2d3eaf61abbfc10eaa3937e35308c685ae9bdf64950b9fb1)
+        expected_text=cafc8f01fa0c70f21eff33bd015d7f6cf7c061ba9bf24a484917b3b788bf8354
+        expected_rodata=ba4444dbc691731944f8016dbb2a8182b97089778b0eaba8defc29ae0be2cd67
+        evidence_id=backbuffer-alias-user-prepared-1.6.15
+        ;;
     *)
-        echo "ERROR: serializer does not match a supported game build" >&2
+        echo "ERROR: serializer or framework does not match a supported build" >&2
+        exit 1
+        ;;
+esac
+case "$assembly_hash:$game_hash" in
+    78f20f307b301f277d0cfd1df778cfbb50bbf7f2de9412e7148fd648d5455cb9:dcc2ac5cc4fddc617bac9aaed647dd6f6112c26ea0af706f449963db0a190da3|\
+    1eb7644d1648368684f7d422ad9922106ac1929f9c953c78115b666bf047fea9:d8ce19a210ed6ea96c743bd5bd650f0c8d2996a3946f10688e00a2e6910a207b)
+        ;;
+    78f20f307b301f277d0cfd1df778cfbb50bbf7f2de9412e7148fd648d5455cb9:2e68ed158cba1d7efdc628847ab0b46bfa19f7df4c31b86b7753da22abc3502f)
+        if [ "$framework_hash" != 467e73ba9d54d49d2d3eaf61abbfc10eaa3937e35308c685ae9bdf64950b9fb1 ]; then
+            echo "ERROR: direct serializer factory requires the backbuffer-alias framework" >&2
+            exit 1
+        fi
+        evidence_id=backbuffer-alias-direct-serializer-1.6.15
+        ;;
+    78f20f307b301f277d0cfd1df778cfbb50bbf7f2de9412e7148fd648d5455cb9:a242835fee31d94a3c4658009f35b198019e7a5c393f8a48fb89acd9f48257f9)
+        if [ "$framework_hash" != 467e73ba9d54d49d2d3eaf61abbfc10eaa3937e35308c685ae9bdf64950b9fb1 ]; then
+            echo "ERROR: collision dedup requires the backbuffer-alias framework" >&2
+            exit 1
+        fi
+        expected_rodata=bd8d0d6288058bc7e5dc4a2176238133090e4dfb3b7f69d316d0f27183cb7851
+        evidence_id=collision-dedup-serializer-1.6.15
+        ;;
+    *)
+        echo "ERROR: game assembly does not match the serializer AOT contract" >&2
         exit 1
         ;;
 esac
