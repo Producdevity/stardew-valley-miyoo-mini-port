@@ -54,10 +54,12 @@ DepotDownloader -app 413150 -depot 413151 -manifest 5538941793102260869 -beta co
 4. Run `./prepare.sh` from the extracted folder. On Windows, run it in WSL.
 5. Copy `OnionOS-package/Roms` to the root of the Miyoo SD card.
 
-On Windows, first [install WSL](https://learn.microsoft.com/windows/wsl/install).
-Open WSL and run `sudo apt update && sudo apt install mono-devel`, then enable
-that distribution under Docker Desktop's
-[WSL integration settings](https://docs.docker.com/desktop/features/wsl/).
+On Windows, install Ubuntu from PowerShell with `wsl --install -d Ubuntu` and
+open Ubuntu once to finish its setup. In Ubuntu, run
+`sudo apt update && sudo apt install mono-devel`. Then enable Ubuntu under
+Docker Desktop's [WSL integration settings](https://docs.docker.com/desktop/features/wsl/).
+The `docker-desktop` distribution is Docker's internal environment; do not try
+to install Mono in it.
 
 The copy of `prepare.sh` under [release-tools](release-tools) is here for review.
 Use the one in the release archive; it needs files that are only shipped with

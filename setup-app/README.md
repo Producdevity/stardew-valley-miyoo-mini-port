@@ -24,9 +24,10 @@ The app verifies the download and uses Steam Mobile QR sign-in. DepotDownloader'
 GPL-2.0 license is kept beside the downloaded tool.
 
 The app uses installed copies of Mono and Docker on macOS and Linux. On Windows
-it runs them in the default WSL distribution, so Mono must be installed there
-and Docker Desktop's WSL integration must be enabled. There's is a guide link
-that helps with the installation of system software you are missing.
+it uses an installed Linux distribution such as Ubuntu. Docker Desktop's
+internal distributions are ignored. Mono must be installed in Ubuntu, and
+Docker Desktop's WSL integration must be enabled for it. Missing requirements
+link to their installation guides.
 
 Run all checks with `pnpm check`. Build a local installer with
 `pnpm tauri:build`; this verifies and bundles the release archive first.

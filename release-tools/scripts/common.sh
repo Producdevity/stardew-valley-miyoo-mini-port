@@ -43,7 +43,8 @@ copy_tree() {
     source_dir=$1
     target_dir=$2
     mkdir -p "$target_dir"
-    (cd "$source_dir" && tar cf - .) | (cd "$target_dir" && tar xf -)
+    (cd "$source_dir" && tar cf - .) | \
+        (cd "$target_dir" && tar xmf - --no-same-owner --no-same-permissions)
 }
 
 hash_tree() {

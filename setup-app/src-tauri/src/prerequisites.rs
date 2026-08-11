@@ -20,16 +20,19 @@ pub fn inspect() -> Vec<Requirement> {
 }
 
 fn inspect_wsl() -> Requirement {
-    let ready = platform::wsl_ready();
-    Requirement {
-        name: "WSL",
-        ready,
-        detail: if ready {
-            "Windows Subsystem for Linux is available".into()
-        } else {
-            "Install WSL and its default Linux distribution".into()
+    match platform::wsl_distribution() {
+        Some(distribution) => Requirement {
+            name: "WSL",
+            ready: true,
+            detail: format!("Using {distribution}"),
+            help_url: Some("https://learn.microsoft.com/windows/wsl/install"),
         },
-        help_url: Some("https://learn.microsoft.com/windows/wsl/install"),
+        None => Requirement {
+            name: "WSL",
+            ready: false,
+            detail: "Install Ubuntu with: wsl --install -d Ubuntu".into(),
+            help_url: Some("https://learn.microsoft.com/windows/wsl/install"),
+        },
     }
 }
 
@@ -43,7 +46,7 @@ fn inspect_mono() -> Requirement {
         },
         _ if cfg!(target_os = "windows") => missing(
             "Mono 6",
-            "In WSL, run: sudo apt update && sudo apt install mono-devel",
+            "Open the Linux distribution shown above, then run: sudo apt update && sudo apt install mono-devel",
             "https://www.mono-project.com/download/stable/",
         ),
         _ => missing(
@@ -64,7 +67,7 @@ fn inspect_sgen() -> Requirement {
         },
         _ if cfg!(target_os = "windows") => missing(
             "Mono serializer",
-            "In WSL, run: sudo apt update && sudo apt install mono-devel",
+            "Open the Linux distribution shown above, then run: sudo apt update && sudo apt install mono-devel",
             "https://www.mono-project.com/download/stable/",
         ),
         _ => missing(
@@ -85,7 +88,7 @@ fn inspect_docker() -> Requirement {
         },
         _ if cfg!(target_os = "windows") && platform::windows_docker_running() => missing(
             "Docker",
-            "Docker Desktop is running; enable WSL integration for the default distribution",
+            "Docker Desktop is running; enable WSL integration for the Linux distribution shown above",
             "https://docs.docker.com/desktop/features/wsl/",
         ),
         Some((false, text)) if docker_permission_denied(&text) => missing(

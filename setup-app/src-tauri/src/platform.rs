@@ -5,21 +5,18 @@ use std::path::PathBuf;
 use std::process::{Command, Output};
 
 pub fn tool_output(program: &str, args: &[&str]) -> Option<Output> {
-    tool_command(program, args).output().ok()
+    tool_command(program, args)?.output().ok()
 }
 
-pub fn wsl_ready() -> bool {
+pub fn wsl_distribution() -> Option<String> {
     #[cfg(target_os = "windows")]
     {
-        Command::new("wsl.exe")
-            .args(["--exec", "/bin/true"])
-            .status()
-            .map(|status| status.success())
-            .unwrap_or(false)
+        let distributions = installed_wsl_distributions();
+        select_wsl_distribution(&distributions, wsl_command_succeeds)
     }
     #[cfg(not(target_os = "windows"))]
     {
-        true
+        None
     }
 }
 
@@ -50,12 +47,19 @@ pub fn windows_docker_running() -> bool {
 pub fn script_command(script: &Path, paths: &[&Path]) -> Result<Command, String> {
     #[cfg(target_os = "windows")]
     {
-        let script = to_wsl_path(script)?;
+        let distribution = wsl_distribution().ok_or(
+            "No usable WSL distribution was found. Install Ubuntu with: wsl --install -d Ubuntu",
+        )?;
+        let script = to_wsl_path(&distribution, script)?;
         let translated = paths
             .iter()
-            .map(|path| to_wsl_path(path))
+            .map(|path| to_wsl_path(&distribution, path))
             .collect::<Result<Vec<_>, _>>()?;
-        Ok(command_from_spec(windows_script_spec(&script, &translated)))
+        Ok(command_from_spec(windows_script_spec(
+            &distribution,
+            &script,
+            &translated,
+        )))
     }
     #[cfg(not(target_os = "windows"))]
     {
@@ -92,12 +96,15 @@ pub fn configure_process_group(command: &mut Command) {
     let _ = command;
 }
 
-fn tool_command(program: &str, args: &[&str]) -> Command {
+fn tool_command(program: &str, args: &[&str]) -> Option<Command> {
     #[cfg(target_os = "windows")]
     {
+        let distribution = wsl_distribution()?;
         let mut command = Command::new("wsl.exe");
-        command.args(["--exec", program]).args(args);
         command
+            .args(["--distribution", &distribution, "--exec", program])
+            .args(args);
+        Some(command)
     }
     #[cfg(not(target_os = "windows"))]
     {
@@ -105,14 +112,21 @@ fn tool_command(program: &str, args: &[&str]) -> Command {
         let mut command = Command::new(executable);
         command.env("PATH", execution_path());
         command.args(args);
-        command
+        Some(command)
     }
 }
 
 #[cfg(target_os = "windows")]
-fn to_wsl_path(path: &Path) -> Result<String, String> {
+fn to_wsl_path(distribution: &str, path: &Path) -> Result<String, String> {
     let output = Command::new("wsl.exe")
-        .args(["--exec", "wslpath", "-a", "-u"])
+        .args([
+            "--distribution",
+            distribution,
+            "--exec",
+            "wslpath",
+            "-a",
+            "-u",
+        ])
         .arg(path)
         .output()
         .map_err(|error| format!("Could not translate a Windows path for WSL: {error}"))?;
@@ -132,6 +146,81 @@ fn to_wsl_path(path: &Path) -> Result<String, String> {
     }
 }
 
+#[cfg(target_os = "windows")]
+fn installed_wsl_distributions() -> Vec<String> {
+    Command::new("wsl.exe")
+        .args(["--list", "--quiet"])
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .map(|output| parse_wsl_distributions(&output.stdout))
+        .unwrap_or_default()
+}
+
+#[cfg(target_os = "windows")]
+fn wsl_command_succeeds(distribution: &str, command: &str) -> bool {
+    Command::new("wsl.exe")
+        .args([
+            "--distribution",
+            distribution,
+            "--exec",
+            "/bin/sh",
+            "-c",
+            command,
+        ])
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
+}
+
+#[cfg(any(target_os = "windows", test))]
+fn parse_wsl_distributions(output: &[u8]) -> Vec<String> {
+    let decoded = if output.chunks_exact(2).any(|pair| pair[1] == 0) {
+        let words = output
+            .chunks_exact(2)
+            .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
+            .collect::<Vec<_>>();
+        String::from_utf16_lossy(&words)
+    } else {
+        String::from_utf8_lossy(output).into_owned()
+    };
+
+    decoded
+        .trim_start_matches('\u{feff}')
+        .lines()
+        .map(|line| line.trim().trim_matches('\0'))
+        .filter(|name| !name.is_empty() && is_user_wsl_distribution(name))
+        .map(str::to_owned)
+        .collect()
+}
+
+#[cfg(any(target_os = "windows", test))]
+fn is_user_wsl_distribution(name: &str) -> bool {
+    !name.eq_ignore_ascii_case("docker-desktop")
+        && !name.eq_ignore_ascii_case("docker-desktop-data")
+}
+
+#[cfg(any(target_os = "windows", test))]
+fn select_wsl_distribution<F>(distributions: &[String], mut succeeds: F) -> Option<String>
+where
+    F: FnMut(&str, &str) -> bool,
+{
+    const MONO: &str = "command -v mono >/dev/null 2>&1 && command -v sgen >/dev/null 2>&1";
+    const ALL_TOOLS: &str =
+        "command -v mono >/dev/null 2>&1 && command -v sgen >/dev/null 2>&1 && command -v docker >/dev/null 2>&1";
+
+    distributions
+        .iter()
+        .find(|name| succeeds(name, ALL_TOOLS))
+        .or_else(|| distributions.iter().find(|name| succeeds(name, MONO)))
+        .or_else(|| {
+            distributions
+                .iter()
+                .find(|name| succeeds(name, "/bin/true"))
+        })
+        .cloned()
+}
+
 #[derive(Debug, PartialEq)]
 struct CommandSpec {
     program: OsString,
@@ -149,8 +238,10 @@ fn unix_script_spec(script: &Path, paths: &[&Path]) -> CommandSpec {
 }
 
 #[cfg(any(target_os = "windows", test))]
-fn windows_script_spec(script: &str, paths: &[String]) -> CommandSpec {
+fn windows_script_spec(distribution: &str, script: &str, paths: &[String]) -> CommandSpec {
     let mut args = vec![
+        OsString::from("--distribution"),
+        OsString::from(distribution),
         OsString::from("--exec"),
         OsString::from("/bin/sh"),
         OsString::from(script),
@@ -222,7 +313,10 @@ fn push_path(paths: &mut Vec<PathBuf>, path: PathBuf) {
 
 #[cfg(test)]
 mod tests {
-    use super::{unix_script_spec, windows_script_spec, CommandSpec};
+    use super::{
+        parse_wsl_distributions, select_wsl_distribution, unix_script_spec, windows_script_spec,
+        CommandSpec,
+    };
     use std::ffi::OsString;
     use std::path::Path;
 
@@ -248,6 +342,7 @@ mod tests {
     #[test]
     fn windows_scripts_use_wsl_without_shell_interpolation() {
         let spec = windows_script_spec(
+            "Ubuntu",
             "/mnt/c/app/prepare.sh",
             &["/mnt/d/Games/Stardew Valley".into(), "/mnt/c/out".into()],
         );
@@ -255,6 +350,8 @@ mod tests {
         assert_eq!(
             spec.args,
             vec![
+                "--distribution",
+                "Ubuntu",
                 "--exec",
                 "/bin/sh",
                 "/mnt/c/app/prepare.sh",
@@ -265,6 +362,35 @@ mod tests {
             .map(OsString::from)
             .collect::<Vec<_>>()
         );
+    }
+
+    #[test]
+    fn ignores_docker_desktop_wsl_distributions() {
+        let text = "docker-desktop\r\nUbuntu\r\ndocker-desktop-data\r\n";
+        let utf16 = text
+            .encode_utf16()
+            .flat_map(u16::to_le_bytes)
+            .collect::<Vec<_>>();
+
+        assert_eq!(parse_wsl_distributions(&utf16), vec!["Ubuntu"]);
+    }
+
+    #[test]
+    fn accepts_utf8_wsl_distribution_output() {
+        assert_eq!(
+            parse_wsl_distributions(b"Debian\nUbuntu-24.04\n"),
+            vec!["Debian", "Ubuntu-24.04"]
+        );
+    }
+
+    #[test]
+    fn prefers_the_distribution_with_mono() {
+        let distributions = vec!["Debian".into(), "Ubuntu".into()];
+        let selected = select_wsl_distribution(&distributions, |name, command| {
+            name == "Ubuntu" && command.contains("mono") && !command.contains("docker")
+        });
+
+        assert_eq!(selected.as_deref(), Some("Ubuntu"));
     }
 
     #[cfg(not(target_os = "windows"))]
