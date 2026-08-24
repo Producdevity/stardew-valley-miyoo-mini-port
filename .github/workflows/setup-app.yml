@@ -19,7 +19,43 @@ permissions:
   contents: read
 
 jobs:
+  release_archive:
+    name: Port archive
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      archive: ${{ steps.release.outputs.archive }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Read release metadata
+        id: release
+        run: node setup-app/scripts/release-metadata.mjs --github-output
+      - name: Download port archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_ARCHIVE: ${{ steps.release.outputs.archive }}
+          RELEASE_SHA256: ${{ steps.release.outputs.sha256 }}
+        run: |
+          mkdir -p release-archive
+          gh release download "$RELEASE_TAG" --clobber --pattern "$RELEASE_ARCHIVE" --dir release-archive
+          echo "$RELEASE_SHA256  release-archive/$RELEASE_ARCHIVE" | sha256sum --check --strict
+      - uses: actions/upload-artifact@v7
+        with:
+          name: port-archive
+          path: release-archive/${{ steps.release.outputs.archive }}
+          if-no-files-found: error
+          retention-days: 1
+
   build:
+    needs: release_archive
+    if: ${{ always() && (github.event_name != 'workflow_dispatch' || needs.release_archive.result == 'success') }}
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.runner }}
     strategy:
@@ -93,20 +129,12 @@ jobs:
       - name: Check app build
         if: github.event_name != 'workflow_dispatch'
         run: pnpm tauri build --no-bundle
-      - name: Read release metadata
-        if: github.event_name == 'workflow_dispatch'
-        id: release
-        run: node scripts/release-metadata.mjs --github-output
       - name: Download port archive
         if: github.event_name == 'workflow_dispatch'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ steps.release.outputs.tag }}
-          RELEASE_ARCHIVE: ${{ steps.release.outputs.archive }}
-        run: |
-          mkdir -p "../releases/$RELEASE_TAG"
-          gh release download "$RELEASE_TAG" --clobber --pattern "$RELEASE_ARCHIVE" --dir "../releases/$RELEASE_TAG"
+        uses: actions/download-artifact@v8
+        with:
+          name: port-archive
+          path: releases/${{ needs.release_archive.outputs.tag }}
       - name: Stage port archive
         if: github.event_name == 'workflow_dispatch'
         run: pnpm stage:release
@@ -131,7 +159,7 @@ jobs:
 
   publish:
     if: github.event_name == 'workflow_dispatch'
-    needs: build
+    needs: [release_archive, build]
     runs-on: ubuntu-22.04
     permissions:
       contents: write
@@ -142,17 +170,17 @@ jobs:
           pattern: setup-*
           path: dist
           merge-multiple: true
-      - name: Read release metadata
-        id: release
-        run: node setup-app/scripts/release-metadata.mjs --github-output
+      - uses: actions/download-artifact@v8
+        with:
+          name: port-archive
+          path: release-assets
       - name: Add setup apps to release
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ steps.release.outputs.tag }}
-          RELEASE_ARCHIVE: ${{ steps.release.outputs.archive }}
+          RELEASE_TAG: ${{ needs.release_archive.outputs.tag }}
+          RELEASE_ARCHIVE: ${{ needs.release_archive.outputs.archive }}
         run: |
           setup-app/scripts/collect-installers.sh dist release-assets "$RELEASE_TAG"
-          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --clobber --pattern "$RELEASE_ARCHIVE" --dir release-assets
           (cd release-assets && sha256sum -- *.AppImage *.deb *.dmg *.exe "$RELEASE_ARCHIVE" > SHA256SUMS)
           gh release upload "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --clobber \
             release-assets/*.AppImage release-assets/*.deb release-assets/*.dmg \
