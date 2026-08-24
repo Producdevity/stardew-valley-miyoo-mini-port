@@ -67,6 +67,7 @@ jobs:
           cache-dependency-path: setup-app/pnpm-lock.yaml
       - uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: 1.97.1
           components: rustfmt, clippy
       - name: Install Linux packages
         if: runner.os == 'Linux'

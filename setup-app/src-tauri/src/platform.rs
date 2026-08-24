@@ -175,10 +175,10 @@ fn wsl_command_succeeds(distribution: &str, command: &str) -> bool {
 
 #[cfg(any(target_os = "windows", test))]
 fn parse_wsl_distributions(output: &[u8]) -> Vec<String> {
-    let decoded = if output.chunks_exact(2).any(|pair| pair[1] == 0) {
-        let words = output
-            .chunks_exact(2)
-            .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
+    let decoded = if output.iter().skip(1).step_by(2).any(|byte| *byte == 0) {
+        let words = (0..output.len().saturating_sub(1))
+            .step_by(2)
+            .map(|index| u16::from_le_bytes([output[index], output[index + 1]]))
             .collect::<Vec<_>>();
         String::from_utf16_lossy(&words)
     } else {
