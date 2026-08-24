@@ -21,11 +21,17 @@ done
 cat > "$BIN/shasum" <<'EOF'
 #!/bin/sh
 for path do :; done
-case "$path" in
-    */Stardew\ Valley.exe)
+case "$path:${SVMM_TEST_LEGACY_BUILD:-0}" in
+    */Stardew\ Valley.exe:1)
+        hash=505d343f04420186ba2b611bcc5d256eff554451f55a6b37f3454362d5e03656
+        ;;
+    */xTile.dll:1)
+        hash=a05a1123aa3abb8c68ec2589649dfac724dd3cc52a2e0d812f04ffab794a7be5
+        ;;
+    */Stardew\ Valley.exe:0)
         hash=0cb091faf1c3ade402340641fc47bcf9a8f6e591a645f27a4c0db2fcdc966086
         ;;
-    */xTile.dll)
+    */xTile.dll:0)
         hash=889b89f06e9699f449b448ac0e9d332c1bee61488f68e590dcb48b16867b293e
         ;;
     *)
@@ -41,8 +47,22 @@ chmod 755 "$BIN/shasum"
 : > "$GAME/harmless-extra-file.txt"
 PATH="$BIN:$PATH" "$CHECK" "$GAME" >/dev/null
 
+if SVMM_TEST_LEGACY_BUILD=1 PATH="$BIN:$PATH" "$CHECK" "$GAME" \
+    >"$WORK/output" 2>&1; then
+    echo "game validation accepted the retired compatibility build" >&2
+    exit 1
+fi
+grep -q 'unsupported Stardew Valley compatibility build' "$WORK/output"
+
+SVMM_TEST_LEGACY_BUILD=1 \
+SVMM_ALLOW_UNTESTED_GAMEFILES=1 \
+PATH="$BIN:$PATH" "$CHECK" "$GAME" >"$WORK/output" 2>&1
+grep -q 'WARNING: continuing with an untested Stardew Valley build' "$WORK/output"
+grep -q 'Stardew Valley.exe SHA-256: 505d343f' "$WORK/output"
+
 rm "$GAME/Content/fixture-3550.xnb"
-if PATH="$BIN:$PATH" "$CHECK" "$GAME" >"$WORK/output" 2>&1; then
+if SVMM_ALLOW_UNTESTED_GAMEFILES=1 PATH="$BIN:$PATH" "$CHECK" "$GAME" \
+    >"$WORK/output" 2>&1; then
     echo "game validation accepted an incomplete Content directory" >&2
     exit 1
 fi

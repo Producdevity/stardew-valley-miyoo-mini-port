@@ -6,9 +6,7 @@ use std::path::PathBuf;
 
 const GAME_EXE: &str = "Stardew Valley.exe";
 const EXPECTED_XNB_COUNT: usize = 3550;
-const VERSION_1614: &str = "505d343f04420186ba2b611bcc5d256eff554451f55a6b37f3454362d5e03656";
 const VERSION_1615: &str = "0cb091faf1c3ade402340641fc47bcf9a8f6e591a645f27a4c0db2fcdc966086";
-const XTILE_1614: &str = "a05a1123aa3abb8c68ec2589649dfac724dd3cc52a2e0d812f04ffab794a7be5";
 const XTILE_1615: &str = "889b89f06e9699f449b448ac0e9d332c1bee61488f68e590dcb48b16867b293e";
 
 #[derive(Clone, Serialize)]
@@ -90,7 +88,6 @@ pub fn inspect_game(path: PathBuf, source: &str) -> GameCandidate {
 
 pub(crate) fn game_for_hash(game_hash: &str) -> Option<(&'static str, &'static str)> {
     match game_hash {
-        VERSION_1614 => Some(("1.6.14.24317", XTILE_1614)),
         VERSION_1615 => Some(("1.6.15.24356", XTILE_1615)),
         _ => None,
     }
@@ -265,5 +262,13 @@ mod tests {
         let (version, xtile) = game_for_hash(VERSION_1615).unwrap();
         assert_eq!(version, "1.6.15.24356");
         assert_eq!(xtile.len(), 64);
+    }
+
+    #[test]
+    fn rejects_the_previous_compatibility_build() {
+        assert!(
+            game_for_hash("505d343f04420186ba2b611bcc5d256eff554451f55a6b37f3454362d5e03656")
+                .is_none()
+        );
     }
 }

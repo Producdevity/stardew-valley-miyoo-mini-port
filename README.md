@@ -4,8 +4,8 @@
 
 An OnionOS port of Stardew Valley for the Miyoo Mini and Miyoo Mini Plus.
 
-Stardew Valley and its assets are not included. Compatibility builds
-`1.6.14.24317` and `1.6.15.24356` are supported.
+Stardew Valley and its assets are not included. Compatibility build
+`1.6.15.24356` is supported.
 
 ## Setup app
 
@@ -26,7 +26,7 @@ Windows, both tools must be available inside WSL.
 
 ## Manual setup
 
-### Download a supported depot
+### Download the supported depot
 
 1. Own Stardew Valley on Steam and sign in to the Steam desktop client.
 2. Open `steam://open/console` in a browser.
@@ -38,13 +38,6 @@ Windows, both tools must be available inside WSL.
 
 4. Steam prints the download location when it finishes.
 
-Steam's console may refuse the older `1.6.14.24317` manifest. It remains
-available through [DepotDownloader](https://github.com/SteamRE/DepotDownloader):
-
-```sh
-DepotDownloader -app 413150 -depot 413151 -manifest 5538941793102260869 -beta compatibility -qr
-```
-
 ### Prepare the port
 
 1. Download the release archive and extract it.
@@ -53,6 +46,12 @@ DepotDownloader -app 413150 -depot 413151 -manifest 5538941793102260869 -beta co
    [Docker](https://docs.docker.com/get-docker/).
 4. Run `./prepare.sh` from the extracted folder. On Windows, run it in WSL.
 5. Copy `OnionOS-package/Roms` to the root of the Miyoo SD card.
+
+Another compatibility build can be tried with
+`./prepare.sh --allow-untested-build`. The script will still check the file
+layout, relinker and save serializers, but it cannot confirm that the game will
+work on the Miyoo Mini. Untested builds do not use serializer AOT and do not
+need Docker.
 
 On Windows, install Ubuntu from PowerShell with `wsl --install -d Ubuntu` and
 open Ubuntu once to finish its setup. In Ubuntu, run

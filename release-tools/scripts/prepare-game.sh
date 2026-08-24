@@ -13,7 +13,7 @@ TEMPLATE="$ROOT/runtime-template"
 TOOLS="$ROOT/tools/managed"
 . "$ROOT/scripts/common.sh"
 
-for command in mono sgen tar docker; do
+for command in mono sgen tar; do
     need "$command"
 done
 for required in \
@@ -175,11 +175,17 @@ run_serializer_checks() {
 source_tree_before=$(hash_tree "$SOURCE")
 source_game_hash=$(sha256_file "$SOURCE/Stardew Valley.exe")
 case "$source_game_hash" in
-    505d343f04420186ba2b611bcc5d256eff554451f55a6b37f3454362d5e03656)
-        game_version=1.6.14.24317 ;;
     0cb091faf1c3ade402340641fc47bcf9a8f6e591a645f27a4c0db2fcdc966086)
-        game_version=1.6.15.24356 ;;
-    *) fail 'unsupported Stardew Valley compatibility build' ;;
+        game_version=1.6.15.24356
+        tested_build=1
+        ;;
+    *)
+        if [ "${SVMM_ALLOW_UNTESTED_GAMEFILES:-0}" != 1 ]; then
+            fail 'unsupported Stardew Valley compatibility build'
+        fi
+        game_version=untested
+        tested_build=0
+        ;;
 esac
 
 rm -rf "$STAGING" "$BACKUP" "$BAKED"
@@ -215,7 +221,11 @@ relink_assembly "$GAME_DIR/gamedata/Stardew Valley.XmlSerializers.dll"
 run_serializer_checks "$GAME_DIR"
 relink_assembly "$GAME_DIR/gamedata/xTile.dll"
 cp "$TOOLS/SVMM.MapRuntime.dll" "$GAME_DIR/gamedata/SVMM.MapRuntime.dll"
-"$ROOT/scripts/compile-aot.sh" "$GAME_DIR"
+if [ "$tested_build" = 1 ]; then
+    "$ROOT/scripts/compile-aot.sh" "$GAME_DIR"
+else
+    echo "WARNING: ARM serializer AOT is disabled for this untested build" >&2
+fi
 
 mkdir -p "$BAKED"
 MONO_PATH="$GAME_DIR/dlls:$GAME_DIR/gamedata:$TOOLS${MONO_PATH:+:$MONO_PATH}" \
@@ -223,11 +233,20 @@ MONO_PATH="$GAME_DIR/dlls:$GAME_DIR/gamedata:$TOOLS${MONO_PATH:+:$MONO_PATH}" \
     "$GAME_DIR/gamedata/Content" "$BAKED" auto nearest
 copy_tree "$BAKED" "$GAME_DIR/gamedata/Content"
 
-cat > "$GAME_DIR/_svmm-preparation-receipt.txt" <<EOF
+if [ "$tested_build" = 1 ]; then
+    cat > "$GAME_DIR/_svmm-preparation-receipt.txt" <<EOF
 version=1
 game_version=$game_version
 source_tree_sha256=$source_tree_before
 EOF
+else
+    cat > "$GAME_DIR/_svmm-preparation-receipt.txt" <<EOF
+version=1
+game_version=untested
+source_game_sha256=$source_game_hash
+source_tree_sha256=$source_tree_before
+EOF
+fi
 
 source_tree_after=$(hash_tree "$SOURCE")
 [ "$source_tree_after" = "$source_tree_before" ] || \
