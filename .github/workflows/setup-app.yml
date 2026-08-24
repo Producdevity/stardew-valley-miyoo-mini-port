@@ -4,11 +4,13 @@ on:
   workflow_dispatch:
   push:
     paths:
+      - "VERSION"
       - "setup-app/**"
       - ".github/workflows/setup-app.yml"
       - "release-tools/**"
   pull_request:
     paths:
+      - "VERSION"
       - "setup-app/**"
       - ".github/workflows/setup-app.yml"
       - "release-tools/**"
@@ -16,77 +18,9 @@ on:
 permissions:
   contents: read
 
-env:
-  RELEASE_TAG: v1.0.4
-  RELEASE_ARCHIVE: stardew-valley-miyoo-mini-v1.0.4.tar.gz
-  GIT_CONFIG_COUNT: "1"
-  GIT_CONFIG_KEY_0: init.defaultBranch
-  GIT_CONFIG_VALUE_0: master
-
 jobs:
-  test:
+  build:
     name: ${{ matrix.name }}
-    runs-on: ${{ matrix.runner }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: Windows x64
-            runner: windows-2025
-          - name: macOS ARM64
-            runner: macos-15
-          - name: macOS Intel
-            runner: macos-15-intel
-          - name: Linux x64
-            runner: ubuntu-22.04
-          - name: Linux ARM64
-            runner: ubuntu-22.04-arm
-
-    defaults:
-      run:
-        working-directory: setup-app
-
-    steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 11.1.1
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: pnpm
-          cache-dependency-path: setup-app/pnpm-lock.yaml
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-      - name: Install Linux packages
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf xdg-utils
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm build
-      - run: pnpm test
-      - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
-      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
-      - run: cargo test --manifest-path src-tauri/Cargo.toml --all-targets
-      - name: Check portable file copy
-        shell: bash
-        run: sh ../release-tools/tests/copy-tree.sh
-      - name: Check release scripts
-        if: runner.os == 'Linux'
-        run: |
-          shellcheck -e SC1091 scripts/*.sh ../release-tools/prepare.sh ../release-tools/scripts/*.sh ../release-tools/tests/*.sh
-          sh ../release-tools/tests/serializer-temp-dir.sh
-          sh ../release-tools/tests/gamefile-validation.sh
-      - run: pnpm tauri build --no-bundle
-
-  package:
-    if: github.event_name == 'workflow_dispatch'
-    needs: test
-    permissions:
-      contents: write
-    name: Package ${{ matrix.name }}
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -132,31 +66,63 @@ jobs:
           cache: pnpm
           cache-dependency-path: setup-app/pnpm-lock.yaml
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
       - name: Install Linux packages
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf xdg-utils
       - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm test
+      - run: pnpm release:check
+      - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --all-targets
+      - name: Check portable file copy
+        shell: bash
+        run: sh ../release-tools/tests/copy-tree.sh
+      - name: Check release scripts
+        if: runner.os == 'Linux'
+        run: |
+          shellcheck -e SC1091 scripts/*.sh ../release-tools/prepare.sh ../release-tools/scripts/*.sh ../release-tools/tests/*.sh
+          sh ../release-tools/tests/serializer-temp-dir.sh
+          sh ../release-tools/tests/gamefile-validation.sh
+      - name: Check app build
+        if: github.event_name != 'workflow_dispatch'
+        run: pnpm tauri build --no-bundle
+      - name: Read release metadata
+        if: github.event_name == 'workflow_dispatch'
+        id: release
+        run: node scripts/release-metadata.mjs --github-output
       - name: Download port archive
+        if: github.event_name == 'workflow_dispatch'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_ARCHIVE: ${{ steps.release.outputs.archive }}
         run: |
           mkdir -p "../releases/$RELEASE_TAG"
           gh release download "$RELEASE_TAG" --clobber --pattern "$RELEASE_ARCHIVE" --dir "../releases/$RELEASE_TAG"
-      - run: pnpm stage:release
+      - name: Stage port archive
+        if: github.event_name == 'workflow_dispatch'
+        run: pnpm stage:release
       - name: Prepare AppImage tools
-        if: runner.os == 'Linux'
+        if: github.event_name == 'workflow_dispatch' && runner.os == 'Linux'
         run: sh scripts/prepare-appimage-tools.sh
-      - run: pnpm tauri build --config src-tauri/tauri.release.conf.json --bundles ${{ matrix.bundles }}
+      - name: Build installer
+        if: github.event_name == 'workflow_dispatch'
+        run: pnpm tauri build --config src-tauri/tauri.release.conf.json --bundles ${{ matrix.bundles }}
       - name: Check AppImage libraries
-        if: runner.os == 'Linux'
+        if: github.event_name == 'workflow_dispatch' && runner.os == 'Linux'
         run: |
           for appimage in src-tauri/target/release/bundle/appimage/*.AppImage; do
             sh scripts/check-appimage.sh "$appimage"
           done
       - uses: actions/upload-artifact@v7
+        if: github.event_name == 'workflow_dispatch'
         with:
           name: setup-${{ runner.os }}-${{ runner.arch }}
           path: ${{ matrix.artifacts }}
@@ -164,7 +130,7 @@ jobs:
 
   publish:
     if: github.event_name == 'workflow_dispatch'
-    needs: package
+    needs: build
     runs-on: ubuntu-22.04
     permissions:
       contents: write
@@ -175,13 +141,18 @@ jobs:
           pattern: setup-*
           path: dist
           merge-multiple: true
+      - name: Read release metadata
+        id: release
+        run: node setup-app/scripts/release-metadata.mjs --github-output
       - name: Add setup apps to release
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_ARCHIVE: ${{ steps.release.outputs.archive }}
         run: |
           setup-app/scripts/collect-installers.sh dist release-assets "$RELEASE_TAG"
           gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --clobber --pattern "$RELEASE_ARCHIVE" --dir release-assets
-          (cd release-assets && sha256sum *.AppImage *.deb *.dmg *.exe "$RELEASE_ARCHIVE" > SHA256SUMS)
+          (cd release-assets && sha256sum -- *.AppImage *.deb *.dmg *.exe "$RELEASE_ARCHIVE" > SHA256SUMS)
           gh release upload "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --clobber \
             release-assets/*.AppImage release-assets/*.deb release-assets/*.dmg \
             release-assets/*.exe release-assets/SHA256SUMS

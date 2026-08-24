@@ -3,11 +3,11 @@ import { copyFile, mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { readReleaseMetadata } from "./release-metadata.mjs";
+
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const projectRoot = path.resolve(appRoot, "..");
-const metadata = JSON.parse(
-  await readFile(path.join(appRoot, "src-tauri", "release-kit.json"), "utf8"),
-);
+const metadata = await readReleaseMetadata();
 const source = process.env.SVMM_RELEASE_ARCHIVE
   ? path.resolve(process.env.SVMM_RELEASE_ARCHIVE)
   : path.join(projectRoot, "releases", `v${metadata.version}`, metadata.archive);

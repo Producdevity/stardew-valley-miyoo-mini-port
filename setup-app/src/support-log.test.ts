@@ -4,11 +4,11 @@ import { buildSupportLog } from "./support-log.ts";
 
 test("records the setup app version", () => {
   const log = buildSupportLog({
-    appVersion: "1.0.4",
+    appVersion: "1.1.0",
     requirements: [],
     steamLines: [],
     preparationLines: [],
   });
 
-  assert.match(log, /^Stardew Valley for Miyoo Mini setup 1\.0\.4$/m);
+  assert.match(log, /^Stardew Valley for Miyoo Mini setup 1\.1\.0$/m);
 });
