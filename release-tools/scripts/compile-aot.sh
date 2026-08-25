@@ -69,7 +69,8 @@ case "$assembly_hash:$game_hash" in
         fi
         evidence_id=backbuffer-alias-direct-serializer-1.6.15
         ;;
-    78f20f307b301f277d0cfd1df778cfbb50bbf7f2de9412e7148fd648d5455cb9:a242835fee31d94a3c4658009f35b198019e7a5c393f8a48fb89acd9f48257f9)
+    78f20f307b301f277d0cfd1df778cfbb50bbf7f2de9412e7148fd648d5455cb9:a242835fee31d94a3c4658009f35b198019e7a5c393f8a48fb89acd9f48257f9|\
+    78f20f307b301f277d0cfd1df778cfbb50bbf7f2de9412e7148fd648d5455cb9:a0af753d08d012b9453863ad913f3414b353022f55ec995f5ab3bae68791f2cf)
         case "$framework_hash" in
             467e73ba9d54d49d2d3eaf61abbfc10eaa3937e35308c685ae9bdf64950b9fb1)
                 expected_rodata=bd8d0d6288058bc7e5dc4a2176238133090e4dfb3b7f69d316d0f27183cb7851
