@@ -216,6 +216,7 @@ rm -f \
 
 GAME_EXE="$GAME_DIR/gamedata/Stardew Valley.exe"
 relink_assembly "$GAME_EXE"
+sha256_file "$GAME_EXE" > "$GAME_DIR/_svmm-game-assembly.sha256"
 build_serializers "$GAME_EXE"
 relink_assembly "$GAME_DIR/gamedata/Stardew Valley.XmlSerializers.dll"
 run_serializer_checks "$GAME_DIR"
@@ -253,7 +254,7 @@ source_tree_after=$(hash_tree "$SOURCE")
     fail 'source gamefiles changed during preparation'
 
 MONO_PATH="$TOOLS${MONO_PATH:+:$MONO_PATH}" \
-    mono "$TOOLS/PackageVerifier.exe" --release "$STAGING"
+    mono "$TOOLS/PackageVerifier.exe" --prepared-game "$STAGING"
 
 if [ -e "$OUT" ]; then
     mv "$OUT" "$BACKUP"

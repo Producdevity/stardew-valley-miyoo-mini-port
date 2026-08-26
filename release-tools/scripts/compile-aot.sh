@@ -33,64 +33,21 @@ fi
 assembly_hash=$(sha256_file "$ASSEMBLY")
 framework_hash=$(sha256_file "$GAME_DIR/dlls/MonoGame.Framework.dll")
 game_hash=$(sha256_file "$GAME_DIR/gamedata/Stardew Valley.exe")
-case "$assembly_hash:$framework_hash" in
-    78f20f307b301f277d0cfd1df778cfbb50bbf7f2de9412e7148fd648d5455cb9:9080ef28b7dd11faeae283794a5a29066dacbccd8799d0e36577a8ca59078eaf)
-        expected_text=cafc8f01fa0c70f21eff33bd015d7f6cf7c061ba9bf24a484917b3b788bf8354
-        expected_rodata=739906d51d718610ac3d0437fd3e31b36d774f34744a09e59614018d46443c4e
-        evidence_id=v1.0.1-user-prepared
-        ;;
-    78f20f307b301f277d0cfd1df778cfbb50bbf7f2de9412e7148fd648d5455cb9:01b62eb6e0720eda3b61765188d97ac5df0545ce0745650609218a9189a13632)
-        expected_text=cafc8f01fa0c70f21eff33bd015d7f6cf7c061ba9bf24a484917b3b788bf8354
-        expected_rodata=cd00f35baac046ef2f36b64c2981bc74afeda64091f3a5c90ae84eafb9fb12ae
-        evidence_id=native-env-cache-user-prepared-1.6.15
-        ;;
-    78f20f307b301f277d0cfd1df778cfbb50bbf7f2de9412e7148fd648d5455cb9:467e73ba9d54d49d2d3eaf61abbfc10eaa3937e35308c685ae9bdf64950b9fb1)
-        expected_text=cafc8f01fa0c70f21eff33bd015d7f6cf7c061ba9bf24a484917b3b788bf8354
-        expected_rodata=ba4444dbc691731944f8016dbb2a8182b97089778b0eaba8defc29ae0be2cd67
-        evidence_id=backbuffer-alias-user-prepared-1.6.15
-        ;;
-    78f20f307b301f277d0cfd1df778cfbb50bbf7f2de9412e7148fd648d5455cb9:ba855757c6f12ef44ed168d56c370994e8aecfb4fc810458ec6ab04a61628be0)
-        expected_text=cafc8f01fa0c70f21eff33bd015d7f6cf7c061ba9bf24a484917b3b788bf8354
-        expected_rodata=d0c845cd20c9422c6b36a975f7dcddb385dc4ca3b20a7a6fae0738f6d4839ae9
-        evidence_id=long-stall-recovery-1.6.15
-        ;;
-    *)
-        echo "ERROR: serializer or framework does not match a supported build" >&2
-        exit 1
-        ;;
-esac
-case "$assembly_hash:$game_hash" in
-    78f20f307b301f277d0cfd1df778cfbb50bbf7f2de9412e7148fd648d5455cb9:dcc2ac5cc4fddc617bac9aaed647dd6f6112c26ea0af706f449963db0a190da3)
-        ;;
-    78f20f307b301f277d0cfd1df778cfbb50bbf7f2de9412e7148fd648d5455cb9:2e68ed158cba1d7efdc628847ab0b46bfa19f7df4c31b86b7753da22abc3502f)
-        if [ "$framework_hash" != 467e73ba9d54d49d2d3eaf61abbfc10eaa3937e35308c685ae9bdf64950b9fb1 ]; then
-            echo "ERROR: direct serializer factory requires the backbuffer-alias framework" >&2
-            exit 1
-        fi
-        evidence_id=backbuffer-alias-direct-serializer-1.6.15
-        ;;
-    78f20f307b301f277d0cfd1df778cfbb50bbf7f2de9412e7148fd648d5455cb9:a242835fee31d94a3c4658009f35b198019e7a5c393f8a48fb89acd9f48257f9|\
-    78f20f307b301f277d0cfd1df778cfbb50bbf7f2de9412e7148fd648d5455cb9:a0af753d08d012b9453863ad913f3414b353022f55ec995f5ab3bae68791f2cf)
-        case "$framework_hash" in
-            467e73ba9d54d49d2d3eaf61abbfc10eaa3937e35308c685ae9bdf64950b9fb1)
-                expected_rodata=bd8d0d6288058bc7e5dc4a2176238133090e4dfb3b7f69d316d0f27183cb7851
-                evidence_id=collision-dedup-serializer-1.6.15
-                ;;
-            ba855757c6f12ef44ed168d56c370994e8aecfb4fc810458ec6ab04a61628be0)
-                expected_rodata=d0c845cd20c9422c6b36a975f7dcddb385dc4ca3b20a7a6fae0738f6d4839ae9
-                evidence_id=collision-dedup-long-stall-recovery-1.6.15
-                ;;
-            *)
-                echo "ERROR: collision dedup requires a tested framework" >&2
-                exit 1
-                ;;
-        esac
-        ;;
-    *)
-        echo "ERROR: game assembly does not match the serializer AOT contract" >&2
-        exit 1
-        ;;
-esac
+expected_assembly=b5ebcde94942e6214fde5cf1500feb935d546e3b991aae769574ab822f267998
+expected_framework=ba855757c6f12ef44ed168d56c370994e8aecfb4fc810458ec6ab04a61628be0
+expected_game=38c3f26622f3ee792fa745ecb412562dfedce672007ed9a7b56d1576d59e5004
+expected_text=cafc1f2304f8adda8316800f8d3fd62ba9ac5e795feb23433a0ebe6e2c19466c
+expected_rodata=c57d3e7fa4136f5d7adab901ebcbbe8b6b55035e922c3f7d09a91b7c889c045c
+
+if [ "$assembly_hash" != "$expected_assembly" ] || \
+   [ "$framework_hash" != "$expected_framework" ] || \
+   [ "$game_hash" != "$expected_game" ]; then
+    echo "ERROR: prepared game files do not match this release" >&2
+    echo "serializer_sha256=$assembly_hash" >&2
+    echo "framework_sha256=$framework_hash" >&2
+    echo "game_sha256=$game_hash" >&2
+    exit 1
+fi
 require_hash "$GAME_DIR/mono/lib/mono/4.5/mscorlib.dll" \
     383236a2a58e3b1506338f602b81d2c73ede7470c56a0727371d2b1e8ffdbd15
 require_hash "$AOT/bin/mono-sgen-profilefix" \
@@ -226,7 +183,6 @@ compiler_sha256=a73c86c3d755e6246badf14f656bb465224825e60d5304952b5740d94adcf954
 loaded_llvm_sha256=bc7a047dc56e2182f1fa1eb9987dcad702cdcd545a9a7b894a18f5dba52ece87
 mono_commit=5266e6a8f107d9b91a6073e4fd1ef4eb1ac7ac6d
 llvm_commit=c97510286a58f9aaa116fcfdb8b693d5f61910d2
-evidence_id=$evidence_id
 EOF
 mv "$MARKER.tmp" "$MARKER"
 
