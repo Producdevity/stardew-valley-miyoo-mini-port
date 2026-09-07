@@ -34,10 +34,10 @@ assembly_hash=$(sha256_file "$ASSEMBLY")
 framework_hash=$(sha256_file "$GAME_DIR/dlls/MonoGame.Framework.dll")
 game_hash=$(sha256_file "$GAME_DIR/gamedata/Stardew Valley.exe")
 expected_assembly=b5ebcde94942e6214fde5cf1500feb935d546e3b991aae769574ab822f267998
-expected_framework=06f96d12accb1f01d1693c0bbf0a9e3f2c195237ddc8cc37336f8a0ed8df49d2
-expected_game=80ce879e1bc0adcd5ad463cf287c9940407899299c2cc1683217c4654d28eede
-expected_text=cafc1f2304f8adda8316800f8d3fd62ba9ac5e795feb23433a0ebe6e2c19466c
-expected_rodata=911ab750d428c855a35af4947b7829314c4eafeacec476b5a1a6d823f71e232e
+expected_framework=c50ff2bd3d47c77997a9e707fb73690cd840e42926096142db08baeb24a84fd3
+expected_game=109f3b6ae182c271c2737e6bd588a331dc7778258d66fc7d616d675fb8b387da
+expected_text=46d429f726cf40f3f7f4cfc40aadb9bf2ee07969979da7dc440266673f9e482f
+expected_rodata=a1ca087ab0e4e27c12880a111b76eb4fbe9249126afafacf30bcb54318079ae0
 
 if [ "$assembly_hash" != "$expected_assembly" ] || \
    [ "$framework_hash" != "$expected_framework" ] || \

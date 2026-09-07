@@ -105,8 +105,23 @@ build_serializers() {
     dll_dir=$(CDPATH='' cd -- "$game_dir/../dlls" && pwd)
     SERIALIZER_TMP=$(make_temp_dir stardew-miyoo-serializer)
 
+    # Keep the same save fields but omit method-only optimizations that mcs
+    # cannot import. This reference copy is discarded after serialization.
+    serializer_reference="$SERIALIZER_TMP/Stardew Valley.exe"
+    cp "$game_dir"/*.dll "$SERIALIZER_TMP/"
+    cp "$dll_dir"/*.dll "$SERIALIZER_TMP/"
+    cp "$SOURCE/Stardew Valley.exe" "$serializer_reference"
+    (
+        export SVMM_COLLISION_CONTEXT_CACHE=0
+        export SVMM_COLLISION_NESTED_CONTEXT_CACHE=0
+        export SVMM_NULLABLE_BOOLEAN_TRUE_FAST_PATH=0
+        export SVMM_BUILDING_PAINT_POLL_FAST_PATH=0
+        export SVMM_CONTROL_INPUT_CLOSURE_DIRECT=0
+        relink_assembly "$serializer_reference"
+    )
+
     MONO_PATH="$dll_dir:$game_dir${MONO_PATH:+:$MONO_PATH}" \
-    run_in_temp_dir "$SERIALIZER_TMP" sgen --force --silent --assembly:"$game_exe" \
+    run_in_temp_dir "$SERIALIZER_TMP" sgen --force --silent --assembly:"$serializer_reference" \
         --type:StardewValley.SaveGame \
         --type:StardewValley.Farmer \
         --type:StardewValley.GameLocation \
