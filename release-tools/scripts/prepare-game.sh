@@ -13,7 +13,7 @@ TEMPLATE="$ROOT/runtime-template"
 TOOLS="$ROOT/tools/managed"
 . "$ROOT/scripts/common.sh"
 
-for command in mono sgen tar; do
+for command in mono sgen cp; do
     need "$command"
 done
 for required in \
