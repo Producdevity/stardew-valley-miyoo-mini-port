@@ -1,0 +1,43 @@
+name: Setup WSL validation
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "release-tools/**"
+      - ".github/workflows/setup-wsl.yml"
+  pull_request:
+    paths:
+      - "release-tools/**"
+      - ".github/workflows/setup-wsl.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  preparation_helpers:
+    name: WSL preparation helpers and Windows output
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: Vampire/setup-wsl@4c48163d9f981914dd8caa0fc335fe19cca5bff4 # v7
+        with:
+          distribution: Ubuntu-22.04
+          wsl-version: 1
+      - name: Check preparation helpers inside WSL
+        shell: wsl-bash {0}
+        run: |
+          sh release-tools/tests/copy-tree.sh
+          sh release-tools/tests/serializer-temp-dir.sh
+          sh release-tools/tests/gamefile-validation.sh
+      - name: Check copies to a Windows drive
+        shell: pwsh
+        run: |
+          $scriptPath = Join-Path $env:GITHUB_WORKSPACE 'release-tools/tests/copy-output-path.sh'
+          $script = wsl.exe --distribution Ubuntu-22.04 --exec wslpath -a -u $scriptPath
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $parent = wsl.exe --distribution Ubuntu-22.04 --exec wslpath -a -u $env:RUNNER_TEMP
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          wsl.exe --distribution Ubuntu-22.04 --exec /bin/sh $script.Trim() $parent.Trim()
+          exit $LASTEXITCODE
