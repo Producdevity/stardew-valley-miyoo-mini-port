@@ -2,10 +2,10 @@
 set -eu
 
 # Exercise the release copy using an output filesystem supplied by the caller.
-[ "$#" -eq 1 ] && [ -d "$1" ] || {
+if [ "$#" -ne 1 ] || [ ! -d "$1" ]; then
     echo "usage: $0 <existing output parent>" >&2
     exit 2
-}
+fi
 ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 . "$ROOT/scripts/common.sh"
 
