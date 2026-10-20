@@ -4,10 +4,12 @@ on:
   workflow_dispatch:
   push:
     paths:
+      - ".gitattributes"
       - "release-tools/**"
       - ".github/workflows/setup-wsl.yml"
   pull_request:
     paths:
+      - ".gitattributes"
       - "release-tools/**"
       - ".github/workflows/setup-wsl.yml"
 
