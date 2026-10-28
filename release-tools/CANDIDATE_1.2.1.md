@@ -1,7 +1,11 @@
 # 1.2.1 candidate validation, 2026-10-28
 
-Status: built and checked locally; unpublished. Physical Miyoo Mini Plus /
-OnionOS confirmation and the platform installer matrix remain release gates.
+Status: [v1.2.1 published](https://github.com/Producdevity/stardew-valley-miyoo-mini-port/releases/tag/v1.2.1)
+on 2026-10-28 after the user authorized release following review. CodeRabbit's
+follow-up review of `c317997` completed with zero findings after the verifier
+binding issue was fixed. The full installer matrix passed. Physical Miyoo Mini
+Plus / OnionOS gameplay confirmation remains unrecorded and is disclosed in the
+release notes.
 
 The archive is `releases/v1.2.1/stardew-valley-miyoo-mini-v1.2.1.tar.gz`.
 Its SHA-256 is
@@ -17,7 +21,7 @@ can return its batch list as the graphics device; a menu clipping write then
 corrupts that list. The native source repair restores the expected inheritance:
 
 ```csharp
-public sealed class SpriteBatch : GraphicsResource
+public class SpriteBatch : GraphicsResource
 {
     public SpriteBatch(GraphicsDevice graphicsDevice)
     {
@@ -61,6 +65,11 @@ are included.
   was also run successfully against this exact archive and owned gamefiles.
 - A local macOS ARM64 setup executable builds with the candidate archive staged.
   This is an unsigned local build, not a signed installer matrix result.
+- The subsequent [release workflow](https://github.com/Producdevity/stardew-valley-miyoo-mini-port/actions/runs/40719400671)
+  passed on Windows x64, macOS ARM64/Intel and Linux ARM64/x64. All seven
+  installers and the runtime archive were downloaded from the draft and checked
+  against `SHA256SUMS` before publication. The published tag points to
+  `c3179976da838ee4fa1c862645be1c35906b7cf5`, the exact reviewed and built commit.
 
 The native checkout retains logs under
 `artifacts/cleanup-release-20261028/`, including `clean-prepare-final.log`,
@@ -68,18 +77,20 @@ The native checkout retains logs under
 `public-builder-tests.log`. Native issue-13 device evidence and limitations are
 documented in `docs/ISSUE13_SPRITEBATCH_CORRUPTION.md` there.
 
-## Remaining release gates
+## Hardware follow-up and release record
 
 1. Confirm the repaired package on the physical Miyoo Mini Plus with OnionOS:
    load existing saves, exercise Social/Quests/Robin's construction menus,
    continue through grass clearing and location transitions, save and reload.
    The reporter described intermittent crashes and supplied no deterministic
    sequence, so a successful short run does not prove every crash is resolved.
-2. Build and check the intended Windows, Linux and Intel macOS installers and
-   signing/notarization as applicable. The existing dispatch workflow publishes
-   installers, so it has deliberately not been invoked during this local work.
-3. Obtain the user's release authorization. No push, tag, GitHub release,
-   workflow dispatch or issue closure was performed.
+2. The installer build/test matrix and downloaded-asset checksum checks passed.
+   Builds use the existing release signing configuration. The local archive
+   remained byte-identical after adding the verifier digest check to the builder.
+3. The user authorized publication with "release after reviewed". The public
+   commits were pushed, the workflow populated an unpublished draft, checksums
+   were verified, and that draft was published. Issue #13 remains open for
+   additional gameplay feedback.
 
 The earlier SD update changed only the tested framework, serializer sidecar and
 its pairing marker, and verified existing gamefiles and saves against the backup.
