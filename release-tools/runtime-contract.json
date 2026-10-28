@@ -1,0 +1,8 @@
+{
+  "baseline_archive_sha256": "ce7757d64185cdac864314189f99b784e933be36e7b5603a4b8aaedf3550e2e0",
+  "baseline_archive_root": "stardew-valley-miyoo-mini-v1.2.0",
+  "framework_sha256": "f22ed849da6998e8627aa68e1d50339c501a10e3db1d7a966c2c484b293bfadb",
+  "framework_mvid": "54d50dc5-52de-4a34-98de-8099b989855f",
+  "serializer_text_sha256": "46d429f726cf40f3f7f4cfc40aadb9bf2ee07969979da7dc440266673f9e482f",
+  "serializer_rodata_sha256": "0364847120b4f2aaa277a938a13e1e2389f43f79155703a904db9df16ea7952d"
+}

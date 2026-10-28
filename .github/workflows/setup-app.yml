@@ -8,12 +8,16 @@ on:
       - "setup-app/**"
       - ".github/workflows/setup-app.yml"
       - "release-tools/**"
+      - "scripts/build-release-candidate.py"
+      - "scripts/test-build-release-candidate.py"
   pull_request:
     paths:
       - "VERSION"
       - "setup-app/**"
       - ".github/workflows/setup-app.yml"
       - "release-tools/**"
+      - "scripts/build-release-candidate.py"
+      - "scripts/test-build-release-candidate.py"
 
 permissions:
   contents: read
@@ -101,6 +105,10 @@ jobs:
           node-version: 24
           cache: pnpm
           cache-dependency-path: setup-app/pnpm-lock.yaml
+      - uses: actions/setup-python@v6
+        if: runner.os == 'Linux'
+        with:
+          python-version: "3.12"
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.97.1
@@ -128,6 +136,7 @@ jobs:
           shellcheck -e SC1091 scripts/*.sh ../release-tools/prepare.sh ../release-tools/scripts/*.sh ../release-tools/tests/*.sh
           sh ../release-tools/tests/serializer-temp-dir.sh
           sh ../release-tools/tests/gamefile-validation.sh
+          python3 ../scripts/test-build-release-candidate.py
       - name: Check app build
         if: github.event_name != 'workflow_dispatch'
         run: pnpm tauri build --no-bundle
