@@ -52,8 +52,9 @@ are included.
   the supported, user-owned game build successfully, including relinking,
   serialization, ARM AOT compilation and final package verification. Original
   source gamefiles are unchanged.
-- The four candidate-builder tests pass, including reproducibility, rejection
-  of an unaccepted framework or stale AOT contract, and game/save exclusion.
+- The five candidate-builder tests pass, including reproducibility, rejection
+  of an unaccepted framework or package verifier, a stale AOT contract, and
+  game/save exclusion.
 - Setup frontend compilation/build and all five Node tests pass. Rust formatting,
   Clippy with warnings denied and 28 ordinary Rust tests pass; three tests
   requiring external fixtures are normally ignored. The external-game fixture

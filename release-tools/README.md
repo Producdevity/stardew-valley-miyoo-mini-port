@@ -22,6 +22,6 @@ python3 scripts/build-release-candidate.py \
 ```
 
 Run that command from the repository root. It checks the baseline archive and
-framework hashes, preserves the established runtime and relinker, copies this
+framework and verifier hashes, preserves the established runtime and relinker, copies this
 checkout's preparation scripts, and excludes user gamefiles and saves. It does
 not create a tag, push, publish a release, or dispatch a workflow.

@@ -3,6 +3,7 @@
   "baseline_archive_root": "stardew-valley-miyoo-mini-v1.2.0",
   "framework_sha256": "f22ed849da6998e8627aa68e1d50339c501a10e3db1d7a966c2c484b293bfadb",
   "framework_mvid": "54d50dc5-52de-4a34-98de-8099b989855f",
+  "verifier_sha256": "9d7ee8a6f40fc21af7e8861f3b1b1fb8498dd9da43aa5333eaf18814ace2a3f0",
   "serializer_text_sha256": "46d429f726cf40f3f7f4cfc40aadb9bf2ee07969979da7dc440266673f9e482f",
   "serializer_rodata_sha256": "0364847120b4f2aaa277a938a13e1e2389f43f79155703a904db9df16ea7952d"
 }

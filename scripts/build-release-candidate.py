@@ -41,8 +41,7 @@ def build(baseline, framework, verifier, output, project=PROJECT):
     contract = json.loads((project / "release-tools/runtime-contract.json").read_text())
     require_hash(baseline, contract["baseline_archive_sha256"])
     require_hash(framework, contract["framework_sha256"])
-    if not verifier.is_file():
-        raise ValueError(f"Compiled package verifier is missing: {verifier}")
+    require_hash(verifier, contract["verifier_sha256"])
     version = (project / "VERSION").read_text().strip()
     if not re.fullmatch(r"\d+\.\d+\.\d+", version):
         raise ValueError("VERSION must contain a numeric release version")

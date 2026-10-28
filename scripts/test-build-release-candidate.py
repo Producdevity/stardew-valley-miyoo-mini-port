@@ -36,6 +36,7 @@ class CandidateTests(unittest.TestCase):
         self.archive = self.root / "baseline.tar.gz"
         self.contract = {"baseline_archive_root": "baseline-kit",
                          "framework_sha256": BUILDER.sha256(self.framework),
+                         "verifier_sha256": BUILDER.sha256(self.verifier),
                          "serializer_text_sha256": "a" * 64,
                          "serializer_rodata_sha256": "b" * 64}
         self.script = self.project / "release-tools/scripts/compile-aot.sh"
@@ -72,6 +73,11 @@ class CandidateTests(unittest.TestCase):
     def test_rejects_stale_aot_contract(self):
         self.script.write_text("expected_framework=old\n")
         with self.assertRaisesRegex(ValueError, "AOT script differs"):
+            self.build("rejected")
+
+    def test_rejects_unverified_package_verifier(self):
+        self.verifier.write_bytes(b"unverified package verifier")
+        with self.assertRaisesRegex(ValueError, "unaccepted build input"):
             self.build("rejected")
 
     def test_rejects_gamefiles_and_saves(self):
